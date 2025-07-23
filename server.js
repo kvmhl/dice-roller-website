@@ -13,7 +13,7 @@ app.use(express.static('public'));
 // This object will store the state of all active rooms
 const rooms = {};
 
-// Helper function to roll dice (remains the same)
+// Helper function to roll dice
 function rollDice(notation) {
     try {
         const result = { set: [], constant: 0, result: [], resultTotal: 0, resultString: '', error: false };
@@ -54,7 +54,7 @@ io.on('connection', (socket) => {
         if (!rooms[roomName]) {
             rooms[roomName] = {
                 notation: '1d6',
-                users: []
+                users: [] // Stores the socket IDs of users in the room
             };
             // Tell all clients in the lobby about the new room
             io.emit('update room list', Object.keys(rooms));
@@ -96,25 +96,33 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Listen for a client disconnecting
     socket.on('disconnect', () => {
-        // Handle removing user from room's user list and deleting empty rooms
+        // Find which room the disconnected user was in
         for (const roomName in rooms) {
-            const index = rooms[roomName].users.indexOf(socket.id);
-            if (index !== -1) {
-                rooms[roomName].users.splice(index, 1);
+            const userIndex = rooms[roomName].users.indexOf(socket.id);
+            if (userIndex !== -1) {
+                // Remove the user from the room's list
+                rooms[roomName].users.splice(userIndex, 1);
                 console.log(`A user left room: ${roomName}`);
+
+                // If the room is now empty, delete it
                 if (rooms[roomName].users.length === 0) {
                     delete rooms[roomName];
+                    // Update the lobby for all remaining clients
                     io.emit('update room list', Object.keys(rooms));
                     console.log(`Room deleted: ${roomName}`);
                 }
-                break;
+                break; // Exit the loop once the user is found and removed
             }
         }
         console.log('A user disconnected from the lobby');
     });
 });
 
-server.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+// Use the port Render provides via environment variables, or default to 3000
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
