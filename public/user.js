@@ -7,11 +7,9 @@ var user = (function() {
     var roomName = '';
 
     that.init = function() {
-        // Get room name from URL query parameter
         const params = new URLSearchParams(window.location.search);
         roomName = params.get('room');
         if (!roomName) {
-            alert('No room specified!');
             window.location.href = '/';
             return;
         }
@@ -19,11 +17,16 @@ var user = (function() {
         socket = io();
 
         socket.on('connect', () => {
-            // Join the specific room
             socket.emit('join room', roomName);
         });
 
-        roller.init(socket, roomName); // Pass room name to the roller
+        // Handle the case where the room no longer exists
+        socket.on('room not found', () => {
+            alert('The room you were trying to join no longer exists. Returning to lobby.');
+            window.location.href = '/';
+        });
+
+        roller.init(socket, roomName);
 
         const notationDisplay = document.getElementById('textInput');
 

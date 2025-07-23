@@ -9,11 +9,12 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-// --- Room Management ---
-// This object will store the state of all active rooms
 const rooms = {};
+// Object to store deletion timeouts for empty rooms
+const emptyRoomTimeouts = {};
+const ROOM_DELETION_TIMEOUT = 3000; // 30 seconds
 
-// Helper function to roll dice
+// (The rollDice function remains the same)
 function rollDice(notation) {
     try {
         const result = { set: [], constant: 0, result: [], resultTotal: 0, resultString: '', error: false };
@@ -45,84 +46,85 @@ function rollDice(notation) {
 
 io.on('connection', (socket) => {
     console.log('A user connected to the lobby');
-
-    // Send the initial list of rooms to the newly connected client
     socket.emit('update room list', Object.keys(rooms));
 
-    // Listen for a host creating a new room
     socket.on('create room', (roomName) => {
         if (!rooms[roomName]) {
             rooms[roomName] = {
                 notation: '1d6',
-                users: [] // Stores the socket IDs of users in the room
+                users: []
             };
-            // Tell all clients in the lobby about the new room
             io.emit('update room list', Object.keys(rooms));
             console.log(`Room created: ${roomName}`);
         }
     });
 
-    // Listen for a client joining a specific room
     socket.on('join room', (roomName) => {
-        if (rooms[roomName]) {
-            socket.join(roomName);
-            rooms[roomName].users.push(socket.id);
-            console.log(`A user joined room: ${roomName}`);
-
-            // Send the current notation for that room to the new user
-            socket.emit('notation update', rooms[roomName].notation);
+        // If the room doesn't exist, kick user back to lobby
+        if (!rooms[roomName]) {
+            socket.emit('room not found');
+            return;
         }
+
+        // If a deletion timeout is pending for this room, cancel it
+        if (emptyRoomTimeouts[roomName]) {
+            clearTimeout(emptyRoomTimeouts[roomName]);
+            delete emptyRoomTimeouts[roomName];
+            console.log(`Room deletion cancelled for: ${roomName}`);
+        }
+
+        socket.join(roomName);
+        rooms[roomName].users.push(socket.id);
+        console.log(`A user joined room: ${roomName}`);
+        socket.emit('notation update', rooms[roomName].notation);
     });
 
-    // Listen for the host changing the dice notation IN A ROOM
     socket.on('set notation', (data) => {
         const { roomName, newNotation } = data;
         if (rooms[roomName]) {
             rooms[roomName].notation = newNotation;
-            // Broadcast to everyone IN THAT ROOM
             io.to(roomName).emit('notation update', newNotation);
         }
     });
 
-    // Listen for a roll request IN A ROOM
     socket.on('request roll', (data) => {
         const { roomName, notation } = data;
         if (rooms[roomName]) {
             const result = rollDice(notation);
             if (!result.error) {
-                // Broadcast the result to everyone IN THAT ROOM
                 io.to(roomName).emit('new roll', result);
             }
         }
     });
 
-    // Listen for a client disconnecting
     socket.on('disconnect', () => {
-        // Find which room the disconnected user was in
         for (const roomName in rooms) {
             const userIndex = rooms[roomName].users.indexOf(socket.id);
             if (userIndex !== -1) {
-                // Remove the user from the room's list
                 rooms[roomName].users.splice(userIndex, 1);
                 console.log(`A user left room: ${roomName}`);
 
-                // If the room is now empty, delete it
+                // If the room is now empty, start a timer to delete it
                 if (rooms[roomName].users.length === 0) {
-                    delete rooms[roomName];
-                    // Update the lobby for all remaining clients
-                    io.emit('update room list', Object.keys(rooms));
-                    console.log(`Room deleted: ${roomName}`);
+                    console.log(`Room ${roomName} is empty. Starting deletion timer.`);
+                    emptyRoomTimeouts[roomName] = setTimeout(() => {
+                        // Check again in case someone rejoined
+                        if (rooms[roomName] && rooms[roomName].users.length === 0) {
+                            delete rooms[roomName];
+                            io.emit('update room list', Object.keys(rooms));
+                            console.log(`Room deleted: ${roomName}`);
+                        }
+                        delete emptyRoomTimeouts[roomName];
+                    }, ROOM_DELETION_TIMEOUT);
                 }
-                break; // Exit the loop once the user is found and removed
+                break;
             }
         }
         console.log('A user disconnected from the lobby');
     });
 });
 
-// Use the port Render provides via environment variables, or default to 3000
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
