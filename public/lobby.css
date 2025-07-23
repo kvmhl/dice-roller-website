@@ -1,0 +1,188 @@
+/* public/lobby.css */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 50px;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f2f5;
+    color: #333;
+
+
+/*    // BACKGROUND IMAGE (Optional)
+    // To add a background image, remove the comment tags
+    // and replace the path with the location of your image.*/
+
+    /*
+    background-image: url('/assets/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    */
+}
+
+/* ... the rest of the file remains unchanged ... */
+
+.container {
+    text-align: center;
+    padding: 40px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 80%;
+    max-width: 600px;
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+}
+
+h2 {
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+    margin-top: 40px;
+}
+
+.room-list a {
+    display: block;
+    text-decoration: none;
+    font-size: 1.5rem;
+    color: #007bff;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 10px 0;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.room-list a:hover {
+    background-color: #e9ecef;
+    transform: scale(1.02);
+}
+
+#no-rooms {
+    font-style: italic;
+    color: #888;
+}
+
+.create-room {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+/* --- STYLES FOR THE ANIMATED INPUT FIELD --- */
+.form {
+    --width-of-input: 200px;
+    --border-height: 1px;
+    --border-before-color: rgba(221, 221, 221, 0.39);
+    --border-after-color: #5891ff;
+    --input-hovered-color: #4985e01f;
+    position: relative;
+    width: var(--width-of-input);
+}
+
+.input {
+    color: #333;
+    font-size: 0.9rem;
+    background-color: transparent;
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline: 0.5em;
+    padding-block: 0.7em;
+    border: none;
+    border-bottom: var(--border-height) solid var(--border-before-color);
+}
+
+.input-border {
+    position: absolute;
+    background: var(--border-after-color);
+    width: 0%;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    transition: 0.3s;
+}
+
+.input:hover {
+    background: var(--input-hovered-color);
+}
+
+.input:focus {
+    outline: none;
+}
+
+.input:focus ~ .input-border {
+    width: 100%;
+}
+
+/* --- STYLES FOR THE BUTTON --- */
+.plusButton {
+    /* Config start */
+    --plus_sideLength: 2.5rem;
+    --plus_topRightTriangleSideLength: 0.9rem;
+    /* Config end */
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid white;
+    width: var(--plus_sideLength);
+    height: var(--plus_sideLength);
+    background-color: #000000;
+    overflow: hidden;
+    /* Added to remove default button styles */
+    padding: 0;
+    outline: none;
+}
+
+.plusButton::before {
+    position: absolute;
+    content: "";
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-width: 0 var(--plus_topRightTriangleSideLength) var(--plus_topRightTriangleSideLength) 0;
+    border-style: solid;
+    border-color: transparent white transparent transparent;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.2s;
+}
+
+.plusButton:hover {
+    cursor: pointer;
+}
+
+.plusButton:hover::before {
+    --plus_topRightTriangleSideLength: calc(var(--plus_sideLength) * 2);
+}
+
+.plusButton:focus-visible::before {
+    --plus_topRightTriangleSideLength: calc(var(--plus_sideLength) * 2);
+}
+
+.plusButton > .plusIcon {
+    fill: white;
+    width: calc(var(--plus_sideLength) * 0.7);
+    height: calc(var(--plus_sideLength) * 0.7);
+    z-index: 1;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.2s;
+}
+
+.plusButton:hover > .plusIcon {
+    fill: black;
+    transform: rotate(180deg);
+}
+
+.plusButton:focus-visible > .plusIcon {
+    fill: black;
+    transform: rotate(180deg);
+}

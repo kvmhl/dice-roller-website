@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: dice-roller-app
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    plan:

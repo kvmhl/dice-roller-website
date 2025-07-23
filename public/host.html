@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8' />
+    <title>3D Dice Roller - HOST</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <!-- FAVICON (Optional)
+         To display a logo in the browser tab, uncomment the line below
+         and make sure an image file named 'favicon.png' exists
+         in the 'public/assets/' folder.
+    -->
+    <!-- <link rel='icon shortcut' href='/assets/favicon.png' /> -->
+    <link rel='stylesheet' href='/styles.css' />
+</head>
+<body onload="host.init()">
+
+<div id="diceRoller"></div>
+
+<main id="diceRollerUI">
+    <div class="top_field">
+        <input type="text" id="textInput" value="1d6"></input>
+    </div>
+    <div id='center_div' class="center_field"></div>
+    <div class="bottom_field">
+        <span id="result"></span>
+    </div>
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/libs/three.min.js"></script>
+<script src="/libs/cannon.min.js"></script>
+<script src="/libs/teal.js"></script>
+<script src="/dice.js"></script>
+<script src="/roller.js"></script>
+<script src="/host.js"></script>
+</body>
+</html>
