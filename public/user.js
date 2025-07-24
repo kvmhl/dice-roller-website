@@ -35,11 +35,26 @@ var user = (function() {
             roller.box.setDice(notation);
         });
 
-        socket.on('new roll', (serverNotation) => {
+        socket.on('new roll', (data) => {
+            const serverNotation = data.result;
+            const throwVector = data.vector;
+            const initiatorId = data.initiatorId;
+
+            // If I am the initiator, use the accurate vector. Otherwise, use null for a random animation.
+            const animationVector = (socket.id === initiatorId) ? throwVector : null;
+
             document.getElementById('result').innerHTML = '';
-            function before_roll_custom(n) { return serverNotation.result; }
-            function after_roll_custom(n) { document.getElementById('result').innerHTML = n.resultString; }
-            roller.box.start_throw(before_roll_custom, after_roll_custom);
+
+            function before_roll_custom(notation) {
+                return serverNotation.result;
+            }
+
+            function after_roll_custom(notation) {
+                document.getElementById('result').innerHTML = notation.resultString;
+            }
+
+            // Call the roll function with the determined vector (accurate or random)
+            roller.box.start_throw(before_roll_custom, after_roll_custom, animationVector);
         });
     };
 
