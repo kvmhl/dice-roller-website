@@ -88,11 +88,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('request roll', (data) => {
-        const { roomName, notation } = data;
+        const { roomName, notation, vector } = data; // Receive the vector
         if (rooms[roomName]) {
             const result = rollDice(notation);
             if (!result.error) {
-                io.to(roomName).emit('new roll', result);
+                io.to(roomName).emit('new roll', { result: result, vector: vector });
             }
         }
     });

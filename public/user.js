@@ -37,11 +37,13 @@ var user = (function() {
 
         socket.on('new roll', (data) => {
             const serverNotation = data.result;
-            const throwVector = data.vector;
-            const initiatorId = data.initiatorId;
+            const animationVector = data.vector;
 
-            // If I am the initiator, use the accurate vector. Otherwise, use null for a random animation.
-            const animationVector = (socket.id === initiatorId) ? throwVector : null;
+            // console.log("Received Swipe Vector:", animationVector);
+
+            // const animationVector = (socket.id === initiatorId) ? throwVector : null;
+
+            // console.log("Vector being used for animation:", animationVector);
 
             document.getElementById('result').innerHTML = '';
 

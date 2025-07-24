@@ -185,15 +185,18 @@ const DICE = (function() {
     }
 
     //call this to roll dice programatically or from click
-    that.dice_box.prototype.start_throw = function(before_roll, after_roll) {
+    that.dice_box.prototype.start_throw = function(before_roll, after_roll, optional_vector) {
         var box = this;
         if (box.rolling) return;
 
-        var vector = { x: (rnd() * 2 - 1) * box.w, y: -(rnd() * 2 - 1) * box.h };
+        // Use the provided vector, or generate a random one if it's null/undefined.
+        var vector = optional_vector || { x: (rnd() * 2 - 1) * box.w, y: -(rnd() * 2 - 1) * box.h };
+
         var dist = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+        if (dist === 0) return;
         var boost = (rnd() + 3) * dist;
         throw_dices(box, vector, boost, dist, before_roll, after_roll);
-    }
+    };
 
     //call this to roll dice from swipe (will throw dice in direction swiped)
     that.dice_box.prototype.bind_swipe = function(container, before_roll, after_roll) {
