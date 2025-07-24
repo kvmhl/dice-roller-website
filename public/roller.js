@@ -8,7 +8,7 @@ var roller = (function() {
     var socket;
     var roomName;
     var isRolling = false;
-    const rollCooldown = 1000;
+    const rollCooldown = 3000;
 
     // Variables to track the swipe action
     var mouse_time;
