@@ -73,61 +73,32 @@ const DICE = (function() {
     // @param container element to contain canvas; canvas will fill container
     // constructor for the dice box
     that.dice_box = function(container) {
-        this.dices = [];
-        this.scene = new THREE.Scene();
-        this.world = new CANNON.World();
-        this.diceToRoll = '';
-        this.container = container;
-        this.barriers = [];
-
-        // Setup renderer
-        this.renderer = window.WebGLRenderingContext
-            ? new THREE.WebGLRenderer({ antialias: true, alpha: true })
-            : new THREE.CanvasRenderer({ antialias: true, alpha: true });
+        // ... (this.dices, scene, world, etc. initialization)
+        this.dices = []; this.scene = new THREE.Scene(); this.world = new CANNON.World(); this.diceToRoll = '1d6'; this.container = container; this.barriers = [];
+        this.renderer = window.WebGLRenderingContext ? new THREE.WebGLRenderer({ antialias: true, alpha: true }) : new THREE.CanvasRenderer({ antialias: true, alpha: true });
         container.appendChild(this.renderer.domElement);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
-        this.renderer.setClearColor(0xffffff, 0);
+        this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFShadowMap; this.renderer.setClearColor(0xffffff, 0);
 
-        // Setup physics world
         this.world.gravity.set(0, 0, -9.8 * 800);
         this.world.broadphase = new CANNON.NaiveBroadphase();
         this.world.solver.iterations = 16;
-
-        // Setup lighting
-        var ambientLight = new THREE.AmbientLight(vars.ambient_light_color);
-        this.scene.add(ambientLight);
+        this.scene.add(new THREE.AmbientLight(vars.ambient_light_color));
 
         this.dice_body_material = new CANNON.Material('diceMaterial');
         let desk_body_material = new CANNON.Material('deskMaterial');
-        this.barrier_body_material = new CANNON.Material('barrierMaterial'); // Store on 'this' for easy access
-
-        // Contact between desk and dice
-        this.world.addContactMaterial(new CANNON.ContactMaterial(
-            desk_body_material, this.dice_body_material, 0.1, 0.5
-        ));
-        // Contact between barrier walls and dice
-        this.world.addContactMaterial(new CANNON.ContactMaterial(
-            this.barrier_body_material, this.dice_body_material, 0, 1.0
-        ));
-        // Contact between dice and other dice
-        this.world.addContactMaterial(new CANNON.ContactMaterial(
-            this.dice_body_material, this.dice_body_material, 0.05, 0.5
-        ));
-
+        this.barrier_body_material = new CANNON.Material('barrierMaterial');
+        this.world.addContactMaterial(new CANNON.ContactMaterial(desk_body_material, this.dice_body_material, 0.1, 0.5));
+        this.world.addContactMaterial(new CANNON.ContactMaterial(this.barrier_body_material, this.dice_body_material, 0, 1.0));
+        this.world.addContactMaterial(new CANNON.ContactMaterial(this.dice_body_material, this.dice_body_material, 0.05, 0.5));
         this.world.add(new CANNON.RigidBody(0, new CANNON.Plane(), desk_body_material));
 
         this.reinit(container);
-
-        $t.bind(window, 'resize', function() {
-            this.reinit(container);
-        }.bind(this));
+        $t.bind(window, 'resize', function() { this.reinit(container); }.bind(this));
 
         this.last_time = 0;
-        this.running = false;
+        this.running = false; // The animation is NOT running by default
         this.renderer.render(this.scene, this.camera);
-
-        this.updateAppearance({});
+        this.setDice('1d6');
     };
 
     // called on init and window resize
@@ -221,20 +192,28 @@ const DICE = (function() {
     // @param diceToRoll (string), ex: "1d100+1d10+1d4+1d6+1d8+1d12+1d20"
     that.dice_box.prototype.setDice = function(diceToRoll) {
         this.diceToRoll = diceToRoll;
-    }
+        this.updateAppearance({});
+    };
 
     //call this to roll dice programatically or from click
     that.dice_box.prototype.start_throw = function(before_roll, after_roll, optional_vector) {
-        var box = this;
-        if (box.rolling) return;
+        if (this.running) return;
 
-        // Use the provided vector, or generate a random one if it's null/undefined.
-        var vector = optional_vector || { x: (rnd() * 2 - 1) * box.w, y: -(rnd() * 2 - 1) * box.h };
+        const notation = that.parse_notation(this.diceToRoll);
+        if (notation.set.length === 0) return;
 
-        var dist = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+        const serverResults = before_roll(notation);
+
+        const vector = optional_vector || { x: (rnd() * 2 - 1) * this.w, y: -(rnd() * 2 - 1) * this.h };
+        const dist = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
         if (dist === 0) return;
-        var boost = (rnd() + 3) * dist;
-        throw_dices(box, vector, boost, dist, before_roll, after_roll);
+
+        const boost = (rnd() + 3) * dist;
+        vector.x /= dist; vector.y /= dist;
+        const vectors = this.generate_vectors(notation, vector, boost);
+
+        // Call the roll function, passing the server results
+        this.roll(vectors, serverResults, after_roll);
     };
 
     //call this to roll dice from swipe (will throw dice in direction swiped)
@@ -271,15 +250,15 @@ const DICE = (function() {
         box.rolling = true;
         let request_results = null;        
 
-        let numDice = vectors.length;
-        numDice = numDice > 10 ? 10 : numDice;
-        for(let i = 0; i < numDice; i++) {
-            let volume = i/10;
-            if(volume <= 0) volume = 0.1;
-            if(volume > 1) volume = 1;
-            playSound(box.container, volume);
-            //todo: find a better way to do this
-        }
+        // let numDice = vectors.length;
+        // numDice = numDice > 10 ? 10 : numDice;
+        // for(let i = 0; i < numDice; i++) {
+        //     let volume = i/10;
+        //     if(volume <= 0) volume = 0.1;
+        //     if(volume > 1) volume = 1;
+        //     playSound(box.container, volume);
+        //     //todo: find a better way to do this
+        // }
 
         if (before_roll) {
             request_results = before_roll(notation);
@@ -315,27 +294,42 @@ const DICE = (function() {
     that.dice_box.prototype.generate_vectors = function(notation, vector, boost) {
         var vectors = [];
         for (var i in notation.set) {
-            var vec = make_random_vector(vector);
-            var pos = {
-                x: this.w * (vec.x > 0 ? -1 : 1) * 0.9,
-                y: this.h * (vec.y > 0 ? -1 : 1) * 0.9,
-                z: rnd() * 200 + 200
-            };
-            var projector = Math.abs(vec.x / vec.y);
-            if (projector > 1.0) pos.y /= projector; else pos.x *= projector;
-            var velvec = make_random_vector(vector);
-            var velocity = { x: velvec.x * boost, y: velvec.y * boost, z: -10 };
-            var inertia = CONSTS.dice_inertia[notation.set[i]];
-            var angle = {
-                x: -(rnd() * vec.y * 5 + inertia * vec.y),
-                y: rnd() * vec.x * 5 + inertia * vec.x,
-                z: 0
-            };
+            let pos, velocity, angle;
+
+            // Check if this is a dynamic roll or a static placement
+            if (boost > 0) {
+                // This is a dynamic roll, so calculate initial throw vectors
+                var vec = make_random_vector(vector);
+                pos = {
+                    x: this.w * (vec.x > 0 ? -1 : 1) * 0.9,
+                    y: this.h * (vec.y > 0 ? -1 : 1) * 0.9,
+                    z: rnd() * 200 + 200
+                };
+                var projector = Math.abs(vec.x / vec.y);
+                if (projector > 1.0) pos.y /= projector; else pos.x *= projector;
+
+                var velvec = make_random_vector(vector);
+                velocity = { x: velvec.x * boost, y: velvec.y * boost, z: -10 };
+
+                var inertia = CONSTS.dice_inertia[notation.set[i]];
+                angle = {
+                    x: -(rnd() * vec.y * 5 + inertia * vec.y),
+                    y: rnd() * vec.x * 5 + inertia * vec.x,
+                    z: 0
+                };
+
+            } else {
+                // This is a static placement (for appearance updates), so place dice in the center with no spin.
+                pos = { x: 0, y: 0, z: rnd() * 200 + 200 };
+                velocity = { x: 0, y: 0, z: 0 };
+                angle = { x: 0, y: 0, z: 0 };
+            }
+
             var axis = { x: rnd(), y: rnd(), z: rnd(), a: rnd() };
             vectors.push({ set: notation.set[i], pos: pos, velocity: velocity, angle: angle, axis: axis });
         }
         return vectors;
-    }
+    };
 
     that.dice_box.prototype.create_dice = function(type, pos, velocity, angle, axis) {
         var dice = threeD_dice['create_' + type]();
@@ -363,7 +357,7 @@ const DICE = (function() {
                 if (dice.dice_stopped === true) continue;
                 var a = dice.body.angularVelocity, v = dice.body.velocity;
                 if (Math.abs(a.x) < e && Math.abs(a.y) < e && Math.abs(a.z) < e &&
-                        Math.abs(v.x) < e && Math.abs(v.y) < e && Math.abs(v.z) < e) {
+                    Math.abs(v.x) < e && Math.abs(v.y) < e && Math.abs(v.z) < e) {
                     if (dice.dice_stopped) {
                         if (this.iteration - dice.dice_stopped > 3) {
                             dice.dice_stopped = true;
@@ -380,7 +374,7 @@ const DICE = (function() {
             }
         }
         return res;
-    }
+    };
 
     that.dice_box.prototype.emulate_throw = function() {
         while (!this.check_if_throw_finished()) {
@@ -391,43 +385,59 @@ const DICE = (function() {
     }
 
     that.dice_box.prototype.__animate = function(threadid) {
-        var time = (new Date()).getTime();
-        var time_diff = (time - this.last_time) / 1000;
+        const time = (new Date()).getTime();
+        let time_diff = (time - this.last_time) / 1000;
         if (time_diff > 3) time_diff = vars.frame_rate;
+
+        // This iteration counter is crucial for check_if_throw_finished
         ++this.iteration;
-        if (vars.use_adapvite_timestep) {
-            while (time_diff > vars.frame_rate * 1.1) {
-                this.world.step(vars.frame_rate);
-                time_diff -= vars.frame_rate;
-            }
-            this.world.step(time_diff);
-        }
-        else {
-            this.world.step(vars.frame_rate);
-        }
+
+        this.world.step(vars.frame_rate);
+
         for (var i in this.scene.children) {
             var interact = this.scene.children[i];
-            if (interact.body != undefined) {
+            if (interact.body !== undefined) {
                 interact.position.copy(interact.body.position);
                 interact.quaternion.copy(interact.body.quaternion);
             }
         }
         this.renderer.render(this.scene, this.camera);
-        this.last_time = this.last_time ? time : (new Date()).getTime();
+        this.last_time = time;
+
+        // Check if the animation should stop
         if (this.running == threadid && this.check_if_throw_finished()) {
-            this.running = false;
-            if (this.callback) this.callback.call(this, get_dice_values(this.dices));
-        }
-        if (this.running == threadid) {
-            (function(t, tid, uat) {
-                if (!uat && time_diff < vars.frame_rate) {
-                    setTimeout(function() { requestAnimationFrame(function() { t.__animate(tid); }); },
-                        (vars.frame_rate - time_diff) * 1000);
+            this.running = false; // Stop the loop
+
+            const physicalResults = get_dice_values(this.dices);
+
+            // Correct faces to match server
+            const serverResults = this.predetermined_results;
+            if (serverResults && serverResults.length) {
+                for (let i = 0; i < this.dices.length; i++) {
+                    shift_dice_faces(this.dices[i], serverResults[i], physicalResults[i]);
                 }
-                else requestAnimationFrame(function() { t.__animate(tid); });
-            })(this, threadid, vars.use_adapvite_timestep);
+            }
+
+            // Prepare and send the final result
+            const finalNotation = that.parse_notation(this.diceToRoll);
+            finalNotation.result = serverResults || physicalResults;
+            finalNotation.resultTotal = finalNotation.result.reduce((s, a) => s + a, 0) + finalNotation.constant;
+            finalNotation.resultString = finalNotation.result.join(' + ');
+            if (finalNotation.constant !== 0) finalNotation.resultString += (finalNotation.constant > 0 ? ' + ' : ' ') + finalNotation.constant;
+            if (finalNotation.set.length > 1 || finalNotation.constant !== 0) finalNotation.resultString += ` = ${finalNotation.resultTotal}`;
+
+            if (this.callback) {
+                this.callback(finalNotation);
+            }
         }
-    }
+
+        // If still running, request the next frame
+        if (this.running == threadid) {
+            (function(t, tid) {
+                requestAnimationFrame(function() { t.__animate(tid); });
+            })(this, threadid);
+        }
+    };
 
     that.dice_box.prototype.clear = function() {
         this.running = false;
@@ -444,34 +454,40 @@ const DICE = (function() {
 
     that.dice_box.prototype.prepare_dices_for_roll = function(vectors) {
         this.clear();
-        this.iteration = 0;
+        this.iteration = 0; // This is a crucial reset
         for (var i in vectors) {
             this.create_dice(vectors[i].set, vectors[i].pos, vectors[i].velocity,
-                    vectors[i].angle, vectors[i].axis);
+                vectors[i].angle, vectors[i].axis);
         }
-    }
+    };
 
     that.dice_box.prototype.roll = function(vectors, values, callback) {
+        this.clear();
         this.prepare_dices_for_roll(vectors);
+
         if (values != undefined && values.length) {
             vars.use_adapvite_timestep = false;
             var res = this.emulate_throw();
             this.prepare_dices_for_roll(vectors);
-            for (var i in res)
+            for (var i in res) {
                 shift_dice_faces(this.dices[i], values[i], res[i]);
+            }
         }
+
         this.callback = callback;
+
+        // Start the animation loop
         this.running = (new Date()).getTime();
         this.last_time = 0;
         this.__animate(this.running);
-    }
+    };
+
+    let threeD_dice = {};
 
     that.clearCaches = function() {
         threeD_dice.dice_material = null;
         threeD_dice.d100_material = null;
         threeD_dice.d4_material = null;
-
-        // Also clear geometries so they can be resized
         threeD_dice.d4_geometry = null;
         threeD_dice.d6_geometry = null;
         threeD_dice.d8_geometry = null;
@@ -485,21 +501,19 @@ const DICE = (function() {
         if (options.labelColor) vars.label_color = options.labelColor;
         if (options.scale) vars.scale = options.scale;
 
-        // Call the public cache clearing function
         DICE.clearCaches();
 
-        // To make the change appear instantly, clear the board and re-prepare the dice
+        // Redraw the dice without starting a roll
         this.clear();
-        const notation = that.parse_notation(this.diceToRoll || '1d6');
-        const vectors = this.generate_vectors(notation, {x:0, y:0}, 0); // Create stationary vectors
+        const notation = that.parse_notation(this.diceToRoll);
+        const vectors = this.generate_vectors(notation, {x:0, y:0}, 0);
         this.prepare_dices_for_roll(vectors);
-        this.renderer.render(this.scene, this.camera); // Render the newly placed dice
+        this.renderer.render(this.scene, this.camera);
     };
 
     that.dice_box.prototype.setDice = function(diceToRoll) {
         this.diceToRoll = diceToRoll;
-        // Also update the visuals when the notation changes
-        this.updateAppearance({});
+        this.updateAppearance({}); // This will redraw the dice
     };
 
 
@@ -568,7 +582,6 @@ const DICE = (function() {
     // PRIVATE FUNCTIONS
 
     // dice geometries
-    let threeD_dice = {};
 
     threeD_dice.create_d4 = function() {
         if (!this.d4_geometry) this.d4_geometry = create_d4_geometry(vars.scale * 1.2);
@@ -927,15 +940,15 @@ const DICE = (function() {
     
     //playSound function and audio file copied from 
     //https://github.com/chukwumaijem/roll-a-die
-    function playSound(outerContainer, soundVolume) {
+    that.playSound = function(outerContainer, soundVolume) {
         if (soundVolume === 0) return;
         const audio = document.createElement('audio');
         outerContainer.appendChild(audio);
-        audio.src = 'assets/nc93322.mp3'; //todo: make this configurable
+        audio.src = 'assets/nc93322.mp3';
         audio.volume = soundVolume;
         audio.play();
         audio.onended = () => {
-          audio.remove();
+            audio.remove();
         };
     }
 

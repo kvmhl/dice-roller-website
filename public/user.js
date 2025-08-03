@@ -20,37 +20,31 @@ var user = (function() {
             socket.emit('join room', roomName);
         });
 
-        // Handle the case where the room no longer exists
         socket.on('room not found', () => {
             alert('The room you were trying to join no longer exists. Returning to lobby.');
             window.location.href = '/';
         });
 
-        roller.init(socket, roomName);
+        // Pass the user's container to the roller's init function
+        roller.init(socket, roomName, document.getElementById('center_div'));
 
         const notationDisplay = document.getElementById('textInput');
 
         socket.on('notation update', (notation) => {
-            notationDisplay.textContent = notation;
+            // Update the text display to show the current dice
+            notationDisplay.value = notation;
+            // Update the dice roller instance with the new dice set
             roller.box.setDice(notation);
         });
 
         socket.on('appearance update', (newAppearance) => {
-            if (roller.box) {
-                roller.box.updateAppearance(newAppearance);
-            }
+            // Tell the dice roller to update the visual appearance of the dice
+            roller.box.updateAppearance(newAppearance);
         });
 
         socket.on('new roll', (data) => {
             const serverNotation = data.result;
             const animationVector = data.vector;
-
-            // console.log("Received Swipe Vector:", animationVector);
-
-            // const animationVector = (socket.id === initiatorId) ? throwVector : null;
-
-            // console.log("Vector being used for animation:", animationVector);
-
             document.getElementById('result').innerHTML = '';
 
             function before_roll_custom(notation) {
@@ -61,9 +55,25 @@ var user = (function() {
                 document.getElementById('result').innerHTML = notation.resultString;
             }
 
-            // Call the roll function with the determined vector (accurate or random)
             roller.box.start_throw(before_roll_custom, after_roll_custom, animationVector);
         });
+
+        socket.on('cooldown', (data) => {
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = `Please wait ${data.timeLeft} seconds.`;
+        });
+
+        socket.on('roll complete', () => {
+            roller.enableRoll();
+        });
+
+        socket.on('play roll sound', () => {
+            const parsedNotation = DICE.parse_notation(textInput.value);
+            if (parsedNotation.set.length > 0) {
+                DICE.playSound(roller.box.container, 0.5);
+            }
+        });
+
     };
 
     return that;

@@ -7,8 +7,13 @@ var roller = (function() {
     var box = null;
     var socket;
     var roomName;
-    var isRolling = false;
-    const rollCooldown = 3000;
+
+    //flag will prevent spamming
+    let canRequestRoll = true;
+
+    that.enableRoll = function() {
+        canRequestRoll = true;
+    };
 
     // Variables to track the swipe action
     var mouse_time;
@@ -37,8 +42,7 @@ var roller = (function() {
         $t.bind(elem.center_div, ['mouseup', 'touchend'], function(ev) {
             if (mouse_start === undefined) return;
 
-            if (isRolling) {
-                console.log('Roll in progress, please wait.');
+            if (!canRequestRoll) {
                 mouse_start = undefined;
                 return;
             }
@@ -52,12 +56,14 @@ var roller = (function() {
 
             if (dist < 20) return;
 
-            isRolling = true;
-            setTimeout(() => {
-                isRolling = false;
-            }, rollCooldown);
+            // isRolling = true;
+            // setTimeout(() => {
+            //     isRolling = false;
+            // }, rollCooldown);
 
             const notation = elem.textInput.value || elem.textInput.textContent;
+
+            canRequestRoll = false;
 
             // --- DEBUGGING ---
             // console.log("Sending swipe vector to server:", vector);
