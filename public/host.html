@@ -4,15 +4,44 @@
     <meta charset='UTF-8' />
     <title>Dice Roller - HOST</title>
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <!-- FAVICON (Optional)
-         To display a logo in the browser tab, uncomment the line below
-         and make sure an image file named 'favicon.png' exists
-         in the 'public/assets/' folder.
-    -->
-    <!-- <link rel='icon shortcut' href='/assets/favicon.png' /> -->
     <link rel='stylesheet' href='/styles.css' />
 </head>
 <body onload="host.init()">
+
+<div id="settings-icon" class="menu-icon">
+    <button class="setting-btn">
+        <span class="bar bar1"></span>
+        <span class="bar bar2"></span>
+        <span class="bar bar1"></span>
+    </button>
+</div>
+
+<div id="sidenav" class="sidenav">
+    <a href="javascript:void(0)" class="close-btn">&times;</a>
+    <h2>Host Settings</h2>
+
+    <div class="setting">
+        <label for="textInput">Dice Notation</label>
+        <input type="text" id="textInput" value="1d6">
+    </div>
+
+    <div class="setting">
+        <label for="dice-color-input">Dice Color</label>
+        <input type="color" id="dice-color-input" value="#202020">
+    </div>
+
+    <div class="setting">
+        <label for="label-color-input">Number Color</label>
+        <input type="color" id="label-color-input" value="#aaaaaa">
+    </div>
+
+    <div class="setting">
+        <label for="dice-scale-input">Dice Size</label>
+        <input type="range" id="dice-scale-input" min="50" max="150" value="100">
+    </div>
+</div>
+
+<div id="overlay"></div>
 
 <div class="theme-switch-container">
     <label class="switch">
@@ -46,7 +75,6 @@
 
 <main id="diceRollerUI">
     <div class="top_field">
-        <input type="text" id="textInput" value="1d6"></input>
     </div>
     <div id='center_div' class="center_field"></div>
     <div class="bottom_field">

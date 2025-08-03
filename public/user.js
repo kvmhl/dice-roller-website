@@ -35,6 +35,12 @@ var user = (function() {
             roller.box.setDice(notation);
         });
 
+        socket.on('appearance update', (newAppearance) => {
+            if (roller.box) {
+                roller.box.updateAppearance(newAppearance);
+            }
+        });
+
         socket.on('new roll', (data) => {
             const serverNotation = data.result;
             const animationVector = data.vector;

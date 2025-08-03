@@ -14,7 +14,6 @@ const rooms = {};
 const emptyRoomTimeouts = {};
 const ROOM_DELETION_TIMEOUT = 3000; // 30 seconds
 
-// (The rollDice function remains the same)
 function rollDice(notation) {
     try {
         const result = { set: [], constant: 0, result: [], resultTotal: 0, resultString: '', error: false };
@@ -52,7 +51,12 @@ io.on('connection', (socket) => {
         if (!rooms[roomName]) {
             rooms[roomName] = {
                 notation: '1d6',
-                users: []
+                users: [],
+                appearance: {
+                    diceColor: '#202020',
+                    labelColor: '#aaaaaa',
+                    scale: 100
+                }
             };
             io.emit('update room list', Object.keys(rooms));
             console.log(`Room created: ${roomName}`);
@@ -77,6 +81,7 @@ io.on('connection', (socket) => {
         rooms[roomName].users.push(socket.id);
         console.log(`A user joined room: ${roomName}`);
         socket.emit('notation update', rooms[roomName].notation);
+        socket.emit('appearance update', rooms[roomName].appearance); // Send appearance
     });
 
     socket.on('set notation', (data) => {
@@ -84,6 +89,15 @@ io.on('connection', (socket) => {
         if (rooms[roomName]) {
             rooms[roomName].notation = newNotation;
             io.to(roomName).emit('notation update', newNotation);
+        }
+    });
+
+    socket.on('set appearance', (data) => {
+        const { roomName, newAppearance } = data;
+        if (rooms[roomName]) {
+            rooms[roomName].appearance = newAppearance;
+            // Broadcast the update to everyone in the room (including the host)
+            io.to(roomName).emit('appearance update', newAppearance);
         }
     });
 
