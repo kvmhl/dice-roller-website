@@ -147,7 +147,9 @@ const DICE = (function() {
         vars.scale = Math.sqrt(this.w * this.w + this.h * this.h) / 8;
         //console.log('scale = ' + vars.scale);
 
-        this.renderer.setSize(this.cw * 2, this.ch * 2);
+        const pixelRatio = window.devicePixelRatio || 1;
+        this.renderer.setPixelRatio(pixelRatio);
+        this.renderer.setSize(this.cw * 2, this.ch * 2, false);
 
         this.wh = this.ch / this.aspect / Math.tan(10 * Math.PI / 180);
         if (this.camera) this.scene.remove(this.camera);
@@ -555,7 +557,8 @@ const DICE = (function() {
             if (text == undefined) return null;
             var canvas = document.createElement("canvas");
             var context = canvas.getContext("2d");
-            var ts = calc_texture_size(size + size * 2 * margin) * 2;
+            var calculated_ts = calc_texture_size(size + size * 2 * margin) * 2;
+            var ts = Math.max(calculated_ts, 256);
             canvas.width = canvas.height = ts;
             context.font = ts / (1 + 2 * margin) + "pt Arial";
             context.fillStyle = back_color;
