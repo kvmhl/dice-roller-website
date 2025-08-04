@@ -90,9 +90,9 @@ const DICE = (function() {
         this.dice_body_material = new CANNON.Material('diceMaterial');
         let desk_body_material = new CANNON.Material('deskMaterial');
         this.barrier_body_material = new CANNON.Material('barrierMaterial');
-        this.world.addContactMaterial(new CANNON.ContactMaterial(desk_body_material, this.dice_body_material, 0.1, 0.5));
+        this.world.addContactMaterial(new CANNON.ContactMaterial(desk_body_material, this.dice_body_material, 0.1, 0.7));
         this.world.addContactMaterial(new CANNON.ContactMaterial(this.barrier_body_material, this.dice_body_material, 0, 1.0));
-        this.world.addContactMaterial(new CANNON.ContactMaterial(this.dice_body_material, this.dice_body_material, 0.05, 0.5));
+        this.world.addContactMaterial(new CANNON.ContactMaterial(this.dice_body_material, this.dice_body_material, 0.1, 0.7));
         this.world.add(new CANNON.RigidBody(0, new CANNON.Plane(), desk_body_material));
 
         this.reinit(container);
@@ -308,13 +308,13 @@ const DICE = (function() {
                 pos = {
                     x: this.w * (vec.x > 0 ? -1 : 1) * 0.9,
                     y: this.h * (vec.y > 0 ? -1 : 1) * 0.9,
-                    z: rnd() * 200 + 200
+                    z: rnd() * 200 + 600
                 };
                 var projector = Math.abs(vec.x / vec.y);
                 if (projector > 1.0) pos.y /= projector; else pos.x *= projector;
 
                 var velvec = make_random_vector(vector);
-                velocity = { x: velvec.x * boost, y: velvec.y * boost, z: -10 };
+                velocity = { x: velvec.x * boost, y: velvec.y * boost, z: rnd() * 200 + 800  };
 
                 var inertia = CONSTS.dice_inertia[notation.set[i]];
                 angle = {
