@@ -46,6 +46,8 @@ const host = (function() {
             labelColorSwatch.style.backgroundColor = labelColorInput.value;
         }
 
+        setInitialSwatchColors();
+
         function toggleMenu() {
             settingsIcon.classList.toggle('open');
             sidenav.classList.toggle('open');
@@ -102,6 +104,9 @@ const host = (function() {
         });
 
         function handleAppearanceChange() {
+            diceColorSwatch.style.backgroundColor = diceColorInput.value;
+            labelColorSwatch.style.backgroundColor = labelColorInput.value;
+
             const newAppearance = {
                 diceColor: diceColorInput.value,
                 labelColor: labelColorInput.value,

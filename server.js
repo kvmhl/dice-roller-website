@@ -79,7 +79,11 @@ io.on('connection', (socket) => {
                 password: password || null, // Store the password (or null if public)
                 users: [],
                 notation: '1d6',
-                appearance: { /* ... default appearance ... */ }
+                appearance: {
+                    diceColor: '#202020',
+                    labelColor: '#aaaaaa',
+                    scale: 100
+                }
             };
             broadcastRoomList();
             console.log(`Room created: ${roomName}`);
