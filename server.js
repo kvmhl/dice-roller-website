@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
                 appearance: {
                     diceColor: '#202020',
                     labelColor: '#aaaaaa',
-                    scale: 100
+                    scale: 75
                 }
             };
             broadcastRoomList();

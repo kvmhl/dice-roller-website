@@ -75,17 +75,26 @@ const DICE = (function() {
     that.dice_box = function(container) {
         // ... (this.dices, scene, world, etc. initialization)
         this.dices = []; this.scene = new THREE.Scene(); this.world = new CANNON.World(); this.diceToRoll = '1d6'; this.container = container; this.barriers = [];
+        this.walls = [];
         this.renderer = window.WebGLRenderingContext ? new THREE.WebGLRenderer({ antialias: true, alpha: true }) : new THREE.CanvasRenderer({ antialias: true, alpha: true });
 
         this.renderer.setPixelRatio(window.devicePixelRatio || 1);
 
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+
         container.appendChild(this.renderer.domElement);
         this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; this.renderer.setClearColor(0xffffff, 0);
 
-        this.world.gravity.set(0, 0, -9.8 * 800);
+        this.world.gravity.set(0, 0, -3.0 * 800);
         this.world.broadphase = new CANNON.NaiveBroadphase();
         this.world.solver.iterations = 16;
-        this.scene.add(new THREE.AmbientLight(vars.ambient_light_color));
+
+        const hemisphereLight = new THREE.HemisphereLight(
+            0xffffff, // Sky color (light from above)
+            0x444444, // Ground color (light bouncing from below)
+            0.9       // Intensity
+        );
+        this.scene.add(hemisphereLight);
 
         this.dice_body_material = new CANNON.Material('diceMaterial');
         let desk_body_material = new CANNON.Material('deskMaterial');
@@ -117,14 +126,11 @@ const DICE = (function() {
         this.renderer.setPixelRatio(pixelRatio);
         this.renderer.setSize(width, height);
 
-        // Setup camera
         const fov_degrees = 20;
         this.aspect = width / height;
         const fov_rad = fov_degrees * Math.PI / 180;
 
-        // Calculate the distance the camera needs to be to see the desired height.
-        // We base the physics world size on half the container height.
-        this.h = height / 2; // Physics world half-height
+        this.h = height / 2;
         const distance = this.h / Math.tan(fov_rad / 2);
 
         if (this.camera) this.scene.remove(this.camera);
@@ -137,23 +143,43 @@ const DICE = (function() {
         // Recalculate dice scale based on the new arena size
         vars.scale = Math.sqrt(this.w * this.w + this.h * this.h) / 8;
 
-        const mw = Math.max(this.w, this.h);
         if (this.light) this.scene.remove(this.light);
-        this.light = new THREE.SpotLight(vars.spot_light_color, 2.0);
-        this.light.position.set(-mw, mw, mw * 2);
+
+        this.light = new THREE.DirectionalLight(vars.spot_light_color, 1.0);
+        // Position the light to cast a nice angled shadow
+        this.light.position.set(-this.w, this.h * 1.5, this.w);
         this.light.target.position.set(0, 0, 0);
-        this.light.distance = mw * 5;
         this.light.castShadow = vars.use_shadows;
 
-        this.light.shadow.mapSize.width = 1024;
-        this.light.shadow.mapSize.height = 1024;
+        const shadow_d = Math.max(this.w, this.h) * 2;
+        this.light.shadow.camera.left = -shadow_d;
+        this.light.shadow.camera.right = shadow_d;
+        this.light.shadow.camera.top = shadow_d;
+        this.light.shadow.camera.bottom = -shadow_d;
 
+
+        this.light.shadow.camera.near = 1;
+        this.light.shadow.camera.far = this.w * 5;
+
+        this.light.shadow.mapSize.width = 2048;
+        this.light.shadow.mapSize.height = 2048;
+
+        this.light.shadow.radius = 4;
 
         this.scene.add(this.light);
+        this.scene.add(this.light.target);
 
         if (this.desk) this.scene.remove(this.desk);
         this.desk = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2, 1, 1),
-            new THREE.MeshPhongMaterial({ color: vars.desk_color, opacity: vars.desk_opacity, transparent: true }));
+            new THREE.MeshPhongMaterial({
+                color: vars.desk_color,
+                opacity: vars.desk_opacity,
+                transparent: true,
+
+                // THE FIX IS HERE: Add these two properties for a shiny surface
+                shininess: 80,         // How sharp the highlight is (higher is sharper/shinier)
+                specular: 0x333333     // The color of the highlight (a subtle grey is best)
+            }));
         this.desk.receiveShadow = vars.use_shadows;
         this.scene.add(this.desk);
 
@@ -162,33 +188,39 @@ const DICE = (function() {
         }
         this.barriers = [];
 
-        // Re-create physics barriers to perfectly match the camera view
-        const barrier_body_material = this.world.contactmaterials[1].materials[0]; // Reuse existing material
+        const barrier_body_material = this.world.contactmaterials[1].materials[0];
         let barrier;
+        const physics_margin = 0.9; // Make physics box 95% of the visible size
 
         // Top wall
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
-        barrier.position.set(0, this.h, 0);
+        barrier.position.set(0, this.h * physics_margin, 0); // <-- Change is here
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Bottom wall
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
-        barrier.position.set(0, -this.h, 0);
+        barrier.position.set(0, -this.h * physics_margin, 0); // <-- Change is here
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Right wall
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -Math.PI/2);
-        barrier.position.set(this.w, 0, 0);
+        barrier.position.set(this.w * physics_margin, 0, 0); // <-- Change is here
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Left wall
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), Math.PI/2);
-        barrier.position.set(-this.w, 0, 0);
+        barrier.position.set(-this.w * physics_margin, 0, 0); // <-- Change is here
         this.world.add(barrier); this.barriers.push(barrier);
+
+        if (this.walls) {
+            this.walls.forEach(w => this.scene.remove(w));
+        }
+        this.walls = [];
+
 
         this.renderer.render(this.scene, this.camera);
     };
