@@ -21,18 +21,60 @@
     <h2>Host Settings</h2>
 
     <div class="setting">
-        <label for="textInput">Dice Notation</label>
-        <input type="text" id="textInput" value="1d6">
+        <label>Dice Selection</label>
+        <div id="dice-selector-container">
+            <div class="dice-row" data-dice-type="d4">
+                <label for="d4-checkbox">D4</label>
+                <input type="checkbox" id="d4-checkbox" class="dice-checkbox">
+                <input type="number" id="d4-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
+            </div>
+
+            <div class="dice-row" data-dice-type="d6">
+                <label for="d6-checkbox">D6</label>
+                <input type="checkbox" id="d6-checkbox" class="dice-checkbox" checked>
+                <input type="number" id="d6-quantity" class="dice-quantity" value="1" min="0" max="99">
+            </div>
+
+            <div class="dice-row" data-dice-type="d8">
+                <label for="d8-checkbox">D8</label>
+                <input type="checkbox" id="d8-checkbox" class="dice-checkbox">
+                <input type="number" id="d8-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
+            </div>
+
+            <div class="dice-row" data-dice-type="d10">
+                <label for="d10-checkbox">D10</label>
+                <input type="checkbox" id="d10-checkbox" class="dice-checkbox">
+                <input type="number" id="d10-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
+            </div>
+
+            <div class="dice-row" data-dice-type="d12">
+                <label for="d12-checkbox">D12</label>
+                <input type="checkbox" id="d12-checkbox" class="dice-checkbox">
+                <input type="number" id="d12-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
+            </div>
+
+            <div class="dice-row" data-dice-type="d20">
+                <label for="d20-checkbox">D20</label>
+                <input type="checkbox" id="d20-checkbox" class="dice-checkbox">
+                <input type="number" id="d20-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
+            </div>
+        </div>
     </div>
 
     <div class="setting">
-        <label for="dice-color-input">Dice Color</label>
-        <input type="color" id="dice-color-input" value="#202020">
+        <label>Dice Color</label>
+        <label class="custom-color-picker">
+            <span id="dice-color-swatch"></span>
+            <input type="color" id="dice-color-input" value="#202020">
+        </label>
     </div>
 
     <div class="setting">
-        <label for="label-color-input">Number Color</label>
-        <input type="color" id="label-color-input" value="#aaaaaa">
+        <label>Number Color</label>
+        <label class="custom-color-picker">
+            <span id="label-color-swatch"></span>
+            <input type="color" id="label-color-input" value="#aaaaaa">
+        </label>
     </div>
 
     <div class="setting">
@@ -43,31 +85,10 @@
 
 <div id="overlay"></div>
 
-<div class="theme-switch-container">
-    <label class="switch">
-        <input id="theme-checkbox" type="checkbox" />
-        <div class="slider round">
-            <div class="sun-moon">
-                <svg id="moon-dot-1" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="moon-dot-2" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="moon-dot-3" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="light-ray-1" class="light-ray" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="light-ray-2" class="light-ray" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="light-ray-3" class="light-ray" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-1" class="cloud-dark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-2" class="cloud-dark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-3" class="cloud-dark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-4" class="cloud-light" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-5" class="cloud-light" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-                <svg id="cloud-6" class="cloud-light" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
-            </div>
-            <div class="stars">
-                <svg id="star-1" class="star" viewBox="0 0 20 20"><path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path></svg>
-                <svg id="star-2" class="star" viewBox="0 0 20 20"><path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path></svg>
-                <svg id="star-3" class="star" viewBox="0 0 20 20"><path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path></svg>
-                <svg id="star-4" class="star" viewBox="0 0 20 20"><path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path></svg>
-            </div>
-        </div>
+<div class="toggle-switch">
+    <label class="switch-label">
+        <input type="checkbox" class="checkbox" id="theme-checkbox">
+        <span class="slider"></span>
     </label>
 </div>
 
@@ -75,11 +96,10 @@
 
 <main id="diceRollerUI">
     <div class="top_field">
-    </div>
-    <div id='center_div' class="center_field"></div>
-    <div class="bottom_field">
         <span id="result"></span>
     </div>
+    <div id="notification-area"></div>
+    <div id='center_div' class="center_field"></div>
 </main>
 
 <script src="/socket.io/socket.io.js"></script>

@@ -1,4 +1,3 @@
-// user.js - User-specific logic
 "use strict";
 
 var user = (function() {
@@ -17,7 +16,9 @@ var user = (function() {
         socket = io();
 
         socket.on('connect', () => {
-            socket.emit('join room', roomName);
+            const savedPassword = sessionStorage.getItem('roomPassword');
+            socket.emit('join room', { roomName: roomName, password: savedPassword });
+            sessionStorage.removeItem('roomPassword');
         });
 
         socket.on('room not found', () => {
@@ -25,20 +26,33 @@ var user = (function() {
             window.location.href = '/';
         });
 
-        // Pass the user's container to the roller's init function
-        roller.init(socket, roomName, document.getElementById('center_div'));
+        roller.init(socket, roomName);
 
-        const notationDisplay = document.getElementById('textInput');
+        const notificationArea = document.getElementById('notification-area');
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            notificationArea.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 4000);
+        }
+
+        socket.on('user_joined', (data) => {
+            showNotification(data.message);
+        });
+
+        socket.on('user_left', (data) => {
+            showNotification(data.message);
+        });
+
 
         socket.on('notation update', (notation) => {
-            // Update the text display to show the current dice
-            notationDisplay.value = notation;
-            // Update the dice roller instance with the new dice set
             roller.box.setDice(notation);
         });
 
         socket.on('appearance update', (newAppearance) => {
-            // Tell the dice roller to update the visual appearance of the dice
             roller.box.updateAppearance(newAppearance);
         });
 
@@ -68,7 +82,7 @@ var user = (function() {
         });
 
         socket.on('play roll sound', () => {
-            const parsedNotation = DICE.parse_notation(textInput.value);
+            const parsedNotation = DICE.parse_notation(roller.box.diceToRoll);
             if (parsedNotation.set.length > 0) {
                 DICE.playSound(roller.box.container, 0.5);
             }

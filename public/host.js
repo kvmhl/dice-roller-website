@@ -17,7 +17,9 @@ const host = (function() {
         socket = io();
 
         socket.on('connect', () => {
-            socket.emit('join room', roomName);
+            const savedPassword = sessionStorage.getItem('roomPassword');
+            socket.emit('join room', { roomName: roomName, password: savedPassword });
+            sessionStorage.removeItem('roomPassword');
         });
 
         socket.on('room not found', () => {
@@ -32,10 +34,17 @@ const host = (function() {
         const sidenav = document.getElementById('sidenav');
         const overlay = document.getElementById('overlay');
         const closeBtn = document.querySelector('.sidenav .close-btn');
-        const textInput = document.getElementById('textInput');
         const diceColorInput = document.getElementById('dice-color-input');
         const labelColorInput = document.getElementById('label-color-input');
         const diceScaleInput = document.getElementById('dice-scale-input');
+
+        const diceColorSwatch = document.getElementById('dice-color-swatch');
+        const labelColorSwatch = document.getElementById('label-color-swatch');
+
+        function setInitialSwatchColors() {
+            diceColorSwatch.style.backgroundColor = diceColorInput.value;
+            labelColorSwatch.style.backgroundColor = labelColorInput.value;
+        }
 
         function toggleMenu() {
             settingsIcon.classList.toggle('open');
@@ -47,10 +56,49 @@ const host = (function() {
         closeBtn.addEventListener('click', toggleMenu);
         overlay.addEventListener('click', toggleMenu);
 
-        textInput.addEventListener('change', () => {
-            const newNotation = textInput.value;
+        const diceRows = document.querySelectorAll('.dice-row');
+
+        function updateDiceNotation() {
+            const parts = [];
+            diceRows.forEach(row => {
+                const quantityInput = row.querySelector('.dice-quantity');
+                const quantity = parseInt(quantityInput.value, 10);
+
+                if (quantity > 0) {
+                    const diceType = row.dataset.diceType;
+                    parts.push(`${quantity}${diceType}`);
+                }
+            });
+
+            const newNotation = parts.join('+') || '1d6'; // Default to 1d6 if empty
+
             roller.box.setDice(newNotation);
             socket.emit('set notation', { roomName, newNotation });
+        }
+
+        diceRows.forEach(row => {
+            const checkbox = row.querySelector('.dice-checkbox');
+            const quantityInput = row.querySelector('.dice-quantity');
+
+            checkbox.addEventListener('change', () => {
+                quantityInput.disabled = !checkbox.checked;
+                if (checkbox.checked) {
+                    if (quantityInput.value === '0') {
+                        quantityInput.value = '1';
+                    }
+                } else {
+                    quantityInput.value = '0';
+                }
+                updateDiceNotation();
+            });
+
+            quantityInput.addEventListener('input', () => {
+                if (parseInt(quantityInput.value, 10) > 0) {
+                    checkbox.checked = true;
+                    quantityInput.disabled = false;
+                }
+                updateDiceNotation();
+            });
         });
 
         function handleAppearanceChange() {
@@ -66,6 +114,21 @@ const host = (function() {
         diceColorInput.addEventListener('input', handleAppearanceChange);
         labelColorInput.addEventListener('input', handleAppearanceChange);
         diceScaleInput.addEventListener('input', handleAppearanceChange);
+
+        const notificationArea = document.getElementById('notification-area');
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+
+            notificationArea.appendChild(notification);
+
+            // Remove the element from the DOM after the animation is done
+            setTimeout(() => {
+                notification.remove();
+            }, 4000); // Must match the animation duration in CSS
+        }
 
         // --- Socket Event Handlers ---
         socket.on('new roll', (data) => {
@@ -91,7 +154,28 @@ const host = (function() {
         });
 
         socket.on('notation update', (notation) => {
-            textInput.value = notation;
+            const notationMap = new Map();
+            if (notation) {
+                notation.split('+').forEach(part => {
+                    const match = part.match(/(\d+)(d\d+)/);
+                    if (match) {
+                        notationMap.set(match[2], parseInt(match[1], 10));
+                    }
+                });
+            }
+
+            diceRows.forEach(row => {
+                const type = row.dataset.diceType;
+                const count = notationMap.get(type) || 0;
+
+                const checkbox = row.querySelector('.dice-checkbox');
+                const quantityInput = row.querySelector('.dice-quantity');
+
+                quantityInput.value = count;
+                checkbox.checked = count > 0;
+                quantityInput.disabled = count === 0;
+            });
+
             roller.box.setDice(notation);
         });
 
@@ -100,6 +184,10 @@ const host = (function() {
             diceColorInput.value = newAppearance.diceColor;
             labelColorInput.value = newAppearance.labelColor;
             diceScaleInput.value = newAppearance.scale;
+
+            diceColorSwatch.style.backgroundColor = newAppearance.diceColor;
+            labelColorSwatch.style.backgroundColor = newAppearance.labelColor;
+
             // Update the visuals
             roller.box.updateAppearance(newAppearance);
         });
@@ -109,10 +197,18 @@ const host = (function() {
         });
 
         socket.on('play roll sound', () => {
-            const parsedNotation = DICE.parse_notation(textInput.value);
+            const parsedNotation = DICE.parse_notation(roller.box.diceToRoll);
             if (parsedNotation.set.length > 0) {
                 DICE.playSound(roller.box.container, 0.5);
             }
+        });
+
+        socket.on('user_joined', (data) => {
+            showNotification(data.message);
+        });
+
+        socket.on('user_left', (data) => {
+            showNotification(data.message);
         });
 
     };

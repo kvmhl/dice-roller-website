@@ -25,7 +25,6 @@ var roller = (function() {
 
         elem.container = $t.id('diceRoller');
         elem.result = $t.id('result');
-        elem.textInput = $t.id('textInput');
         elem.center_div = $t.id('center_div');
 
         box = new DICE.dice_box(elem.container);
@@ -61,7 +60,7 @@ var roller = (function() {
             //     isRolling = false;
             // }, rollCooldown);
 
-            const notation = elem.textInput.value || elem.textInput.textContent;
+            const notation = that.box.diceToRoll;
 
             canRequestRoll = false;
 

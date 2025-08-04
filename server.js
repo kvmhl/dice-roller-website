@@ -59,50 +59,91 @@ function rollDice(notation) {
     }
 }
 
+function broadcastRoomList() {
+    const roomList = Object.keys(rooms).map(name => ({
+        name: name,
+        isPrivate: !!rooms[name].password // true if a password is set
+    }));
+    io.emit('update room list', roomList);
+}
+
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
-    socket.emit('update room list', Object.keys(rooms));
 
-    socket.on('create room', (roomName) => {
+    broadcastRoomList();
+
+    socket.on('create room', (data) => {
+        const { roomName, password } = data;
         if (!rooms[roomName]) {
             rooms[roomName] = {
-                notation: '1d6',
+                password: password || null, // Store the password (or null if public)
                 users: [],
-                appearance: {
-                    diceColor: '#202020',
-                    labelColor: '#aaaaaa',
-                    scale: 100
-                }
+                notation: '1d6',
+                appearance: { /* ... default appearance ... */ }
             };
-            io.emit('update room list', Object.keys(rooms));
+            broadcastRoomList();
             console.log(`Room created: ${roomName}`);
+
+            socket.emit('create_success', { roomName });
+
+        } else {
+            // Handle error if room exists
         }
     });
 
-    socket.on('join room', (roomName) => {
-        if (!rooms[roomName]) {
+    socket.on('check room', (data) => {
+        const { roomName, password } = data;
+        const room = rooms[roomName];
+
+        if (!room) {
+            socket.emit('room not found');
+            return;
+        }
+        if (room.password && room.password !== password) {
+            socket.emit('join_error', { message: 'Incorrect password.' });
+            return;
+        }
+        // If everything is okay, tell the lobby it's safe to navigate
+        socket.emit('check_success', { roomName });
+    });
+
+
+    socket.on('join room', (data) => {
+        // Correctly deconstruct the incoming data object
+        const { roomName, password } = data;
+        const room = rooms[roomName];
+
+        if (!room) {
             socket.emit('room not found');
             return;
         }
 
+        // Perform the password check
+        if (room.password && room.password !== password) {
+            socket.emit('join_error', { message: 'Incorrect password.' });
+            return;
+        }
+
+        // This part is for the deletion timer
         if (emptyRoomTimeouts[roomName]) {
             clearTimeout(emptyRoomTimeouts[roomName]);
             delete emptyRoomTimeouts[roomName];
+            console.log(`Deletion timer for room ${roomName} cancelled.`);
         }
 
         socket.join(roomName);
-        rooms[roomName].users.push(socket.id);
+        room.users.push(socket.id);
         console.log(`User ${socket.id} joined room: ${roomName}`);
-        socket.emit('notation update', rooms[roomName].notation);
-        socket.emit('appearance update', rooms[roomName].appearance);
-    });
 
-    socket.on('set notation', (data) => {
-        const { roomName, newNotation } = data;
-        if (rooms[roomName]) {
-            rooms[roomName].notation = newNotation;
-            io.to(roomName).emit('notation update', newNotation);
-        }
+        // Let the client know it was successful (for lobby navigation)
+        socket.emit('join_success', { roomName });
+
+        // Broadcast the join message to others
+        socket.to(roomName).emit('user_joined', { message: `A new user has joined.` });
+
+        // Send initial state to the new user
+        socket.emit('notation update', room.notation);
+        socket.emit('appearance update', room.appearance);
     });
 
     socket.on('set appearance', (data) => {
@@ -114,7 +155,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('request roll', (data) => {
-        // 1. If the user is already locked by the server, ignore the request.
         if (rollingUsers.has(socket.id)) {
             return;
         }
@@ -122,10 +162,8 @@ io.on('connection', (socket) => {
         const { roomName, notation, vector } = data;
         const now = Date.now();
 
-        // 2. Lock the user immediately.
         rollingUsers.add(socket.id);
 
-        // 3. Check server cooldown.
         if (rollCooldowns[socket.id] && now < rollCooldowns[socket.id]) {
             const timeLeft = Math.ceil((rollCooldowns[socket.id] - now) / 1000);
             socket.emit('cooldown', { timeLeft });
@@ -136,8 +174,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // 4. If not on cooldown, process the roll.
-        rollCooldowns[socket.id] = now + 3000;
+        rollCooldowns[socket.id] = now + 1500;
         if (rooms[roomName]) {
             const result = rollDice(notation);
             if (!result.error) {
@@ -147,7 +184,6 @@ io.on('connection', (socket) => {
             }
         }
 
-        // 5. Send the specific "unlock" event back to the original sender.
         socket.emit('roll complete');
         rollingUsers.delete(socket.id); // Unlock the user on the server.
     });
@@ -155,7 +191,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
-        // Ensure user is removed from any locks on disconnect.
         rollingUsers.delete(socket.id);
 
         for (const roomName in rooms) {
@@ -164,12 +199,15 @@ io.on('connection', (socket) => {
                 rooms[roomName].users.splice(userIndex, 1);
                 console.log(`User left room: ${roomName}`);
 
+                //Broadcast that a user has left the room
+                io.to(roomName).emit('user_left', { message: 'A user has left the room.' });
+
                 if (rooms[roomName].users.length === 0) {
                     console.log(`Room ${roomName} is empty. Starting deletion timer.`);
                     emptyRoomTimeouts[roomName] = setTimeout(() => {
                         if (rooms[roomName] && rooms[roomName].users.length === 0) {
                             delete rooms[roomName];
-                            io.emit('update room list', Object.keys(rooms));
+                            broadcastRoomList();
                             console.log(`Room deleted: ${roomName}`);
                         }
                         delete emptyRoomTimeouts[roomName];

@@ -76,8 +76,11 @@ const DICE = (function() {
         // ... (this.dices, scene, world, etc. initialization)
         this.dices = []; this.scene = new THREE.Scene(); this.world = new CANNON.World(); this.diceToRoll = '1d6'; this.container = container; this.barriers = [];
         this.renderer = window.WebGLRenderingContext ? new THREE.WebGLRenderer({ antialias: true, alpha: true }) : new THREE.CanvasRenderer({ antialias: true, alpha: true });
+
+        this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+
         container.appendChild(this.renderer.domElement);
-        this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFShadowMap; this.renderer.setClearColor(0xffffff, 0);
+        this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; this.renderer.setClearColor(0xffffff, 0);
 
         this.world.gravity.set(0, 0, -9.8 * 800);
         this.world.broadphase = new CANNON.NaiveBroadphase();
@@ -134,7 +137,6 @@ const DICE = (function() {
         // Recalculate dice scale based on the new arena size
         vars.scale = Math.sqrt(this.w * this.w + this.h * this.h) / 8;
 
-        // Update lighting
         const mw = Math.max(this.w, this.h);
         if (this.light) this.scene.remove(this.light);
         this.light = new THREE.SpotLight(vars.spot_light_color, 2.0);
@@ -142,46 +144,48 @@ const DICE = (function() {
         this.light.target.position.set(0, 0, 0);
         this.light.distance = mw * 5;
         this.light.castShadow = vars.use_shadows;
-        // ... (rest of light properties remain the same)
+
+        this.light.shadow.mapSize.width = 1024;
+        this.light.shadow.mapSize.height = 1024;
+
+
         this.scene.add(this.light);
 
-        // Update the visual background plane to match the physics arena
         if (this.desk) this.scene.remove(this.desk);
         this.desk = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2, 1, 1),
             new THREE.MeshPhongMaterial({ color: vars.desk_color, opacity: vars.desk_opacity, transparent: true }));
         this.desk.receiveShadow = vars.use_shadows;
         this.scene.add(this.desk);
 
-        // Remove old physics barriers if they exist
         if (this.barriers) {
             this.barriers.forEach(b => this.world.remove(b));
         }
-        this.barriers = []; // Store new barriers
+        this.barriers = [];
 
         // Re-create physics barriers to perfectly match the camera view
         const barrier_body_material = this.world.contactmaterials[1].materials[0]; // Reuse existing material
         let barrier;
 
         // Top wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material); // CORRECTED
+        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
         barrier.position.set(0, this.h, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Bottom wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material); // CORRECTED
+        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
         barrier.position.set(0, -this.h, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Right wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material); // CORRECTED
+        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -Math.PI/2);
         barrier.position.set(this.w, 0, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Left wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material); // CORRECTED
+        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), Math.PI/2);
         barrier.position.set(-this.w, 0, 0);
         this.world.add(barrier); this.barriers.push(barrier);
@@ -293,12 +297,13 @@ const DICE = (function() {
     //todo: the rest of these don't need to be public, but need to read the this properties
     that.dice_box.prototype.generate_vectors = function(notation, vector, boost) {
         var vectors = [];
-        for (var i in notation.set) {
+        const num_dice = notation.set.length;
+
+        for (let i = 0; i < num_dice; i++) {
             let pos, velocity, angle;
 
-            // Check if this is a dynamic roll or a static placement
             if (boost > 0) {
-                // This is a dynamic roll, so calculate initial throw vectors
+                // dynamic roll
                 var vec = make_random_vector(vector);
                 pos = {
                     x: this.w * (vec.x > 0 ? -1 : 1) * 0.9,
@@ -319,8 +324,24 @@ const DICE = (function() {
                 };
 
             } else {
-                // This is a static placement (for appearance updates), so place dice in the center with no spin.
-                pos = { x: 0, y: 0, z: rnd() * 200 + 200 };
+                // This is a static placement (for appearance updates).
+                if (num_dice <= 1) {
+                    pos = { x: 0, y: 0, z: 150 };
+                } else {
+                    const radius = vars.scale * 1.2 + (num_dice * 8);
+                    const angle_step = (2 * Math.PI) / num_dice;
+                    const current_angle = i * angle_step;
+
+                    pos = {
+                        x: radius * Math.cos(current_angle),
+                        y: radius * Math.sin(current_angle),
+                        z: 150 + (i * 5)
+                    };
+                }
+
+                // --- DEBUGGING ---
+                console.log(`Die ${i + 1}/${num_dice}: Spawning at x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}`);
+
                 velocity = { x: 0, y: 0, z: 0 };
                 angle = { x: 0, y: 0, z: 0 };
             }
@@ -338,6 +359,9 @@ const DICE = (function() {
         dice.body = new CANNON.RigidBody(CONSTS.dice_mass[type],
                 dice.geometry.cannon_shape, this.dice_body_material);
         dice.body.position.set(pos.x, pos.y, pos.z);
+
+        dice.position.copy(dice.body.position);
+
         dice.body.quaternion.setFromAxisAngle(new CANNON.Vec3(axis.x, axis.y, axis.z), axis.a * Math.PI * 2);
         dice.body.angularVelocity.set(angle.x, angle.y, angle.z);
         dice.body.velocity.set(velocity.x, velocity.y, velocity.z);
@@ -944,7 +968,8 @@ const DICE = (function() {
         if (soundVolume === 0) return;
         const audio = document.createElement('audio');
         outerContainer.appendChild(audio);
-        audio.src = 'assets/nc93322.mp3';
+        const randsound = Math.floor(Math.random() * 4) + 1;
+        audio.src = 'assets/dice_rolling' + randsound + '.mp3';
         audio.volume = soundVolume;
         audio.play();
         audio.onended = () => {
