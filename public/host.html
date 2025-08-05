@@ -59,6 +59,18 @@
                 <input type="number" id="d20-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
         </div>
+
+        <div class="setting">
+            <h3>Experimental Settings</h3>
+            <div class="preset-group" id="physics-presets">
+                <label><input type="radio" name="physics" value="Normal" checked> Normal</label>
+                <label><input type="radio" name="physics" value="Moon"> Moon Gravity</label>
+                <label><input type="radio" name="physics" value="Jupiter"> Jupiter Gravity</label>
+                <label><input type="radio" name="physics" value="Ice"> Ice Skating</label>
+                <label><input type="radio" name="physics" value="Bouncy"> Bouncy</label>
+            </div>
+        </div>
+
     </div>
 
     <div class="setting">
@@ -96,7 +108,12 @@
 
 <main id="diceRollerUI">
     <div class="top_field">
-        <span id="result"></span>
+        <div class="result-container">
+            <span id="result"></span>
+            <div id="cooldown-bar-container" class="cooldown-bar-container">
+                <div id="cooldown-bar" class="cooldown-bar"></div>
+            </div>
+        </div>
     </div>
     <div id="notification-area"></div>
     <div id='center_div' class="center_field"></div>

@@ -254,10 +254,17 @@ body.dark-mode .input:focus { background-color: #333; }
 
 @media (min-width: 768px) {
     body {
-        /* Change vertical alignment from top to center */
-        align-items: center;
-
-        /* Remove the top padding for true centering on desktop */
-        padding-top: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 15vh;
+        height: 100vh;
     }
+}
+
+.room-list {
+    max-height: 30vh;
+    overflow-y: auto;
+    padding-right: 10px;
 }

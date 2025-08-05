@@ -12,11 +12,6 @@ const rooms = {};
 const emptyRoomTimeouts = {};
 const ROOM_DELETION_TIMEOUT = 3000; // 3 seconds in milliseconds
 
-// This Set will track users who have an active roll request to prevent spam.
-const rollingUsers = new Set();
-
-const rollCooldowns = {};
-
 /**
  * Parses dice notation and returns a result object.
  * @param {string} notation - The dice notation string (e.g., "2d6+1d20+5").
@@ -76,14 +71,16 @@ io.on('connection', (socket) => {
         const { roomName, password } = data;
         if (!rooms[roomName]) {
             rooms[roomName] = {
-                password: password || null, // Store the password (or null if public)
+                password: password || null,
                 users: [],
                 notation: '1d6',
                 appearance: {
                     diceColor: '#202020',
                     labelColor: '#aaaaaa',
-                    scale: 75
-                }
+                    scale: 100
+                },
+                physicsPreset: "Normal", // Default preset
+                isRolling: false
             };
             broadcastRoomList();
             console.log(`Room created: ${roomName}`);
@@ -91,7 +88,7 @@ io.on('connection', (socket) => {
             socket.emit('create_success', { roomName });
 
         } else {
-            // Handle error if room exists
+            // TODO: Handle error if room exists
         }
     });
 
@@ -148,6 +145,7 @@ io.on('connection', (socket) => {
         // Send initial state to the new user
         socket.emit('notation update', room.notation);
         socket.emit('appearance update', room.appearance);
+        socket.emit('physics preset update', room.physicsPreset);
     });
 
     socket.on('set appearance', (data) => {
@@ -158,44 +156,56 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('request roll', (data) => {
-        if (rollingUsers.has(socket.id)) {
-            return;
-        }
-
-        const { roomName, notation, vector } = data;
-        const now = Date.now();
-
-        rollingUsers.add(socket.id);
-
-        if (rollCooldowns[socket.id] && now < rollCooldowns[socket.id]) {
-            const timeLeft = Math.ceil((rollCooldowns[socket.id] - now) / 1000);
-            socket.emit('cooldown', { timeLeft });
-
-            // IMPORTANT: Also tell the client its request is finished, and unlock.
-            socket.emit('roll complete');
-            rollingUsers.delete(socket.id);
-            return;
-        }
-
-        rollCooldowns[socket.id] = now + 1500;
+    socket.on('set notation', (data) => {
+        const { roomName, newNotation } = data;
         if (rooms[roomName]) {
+            rooms[roomName].notation = newNotation;
+            io.to(roomName).emit('notation update', newNotation);
+        }
+    });
+
+    socket.on('set physics preset', (data) => {
+        const { roomName, presetName } = data;
+        if (rooms[roomName]) {
+            rooms[roomName].physicsPreset = presetName;
+            // Broadcast the new preset to everyone in the room
+            io.to(roomName).emit('physics preset update', presetName);
+        }
+    });
+
+    socket.on('request roll', (data) => {
+        const { roomName, notation, vector } = data;
+        const room = rooms[roomName];
+
+        // Check if the room is already in a "rolling" state
+        if (room && room.isRolling) {
+            return; // Ignore the request if a roll is already happening
+        }
+
+        if (room) {
+            room.isRolling = true;
+
             const result = rollDice(notation);
             if (!result.error) {
                 io.to(roomName).emit('play roll sound');
-                // Broadcast the animation event to everyone in the room.
                 io.to(roomName).emit('new roll', { result: result, vector: vector });
             }
-        }
 
-        socket.emit('roll complete');
-        rollingUsers.delete(socket.id); // Unlock the user on the server.
+            const ROLL_COOLDOWN = 1500; // 3 seconds
+            io.to(roomName).emit('start cooldown', { duration: ROLL_COOLDOWN });
+
+            setTimeout(() => {
+                if (rooms[roomName]) { // Check if room still exists
+                    rooms[roomName].isRolling = false;
+                    io.to(roomName).emit('enable roll');
+                }
+            }, ROLL_COOLDOWN);
+        }
     });
 
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
-        rollingUsers.delete(socket.id);
 
         for (const roomName in rooms) {
             const userIndex = rooms[roomName].users.indexOf(socket.id);

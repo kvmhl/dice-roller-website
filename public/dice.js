@@ -85,7 +85,7 @@ const DICE = (function() {
         container.appendChild(this.renderer.domElement);
         this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; this.renderer.setClearColor(0xffffff, 0);
 
-        this.world.gravity.set(0, 0, -3.0 * 800);
+        this.world.gravity.set(0, 0, -9.8 * 800);
         this.world.broadphase = new CANNON.NaiveBroadphase();
         this.world.solver.iterations = 16;
 
@@ -188,38 +188,38 @@ const DICE = (function() {
         }
         this.barriers = [];
 
+        if (this.barriers) {
+            this.barriers.forEach(b => this.world.remove(b));
+        }
+        this.barriers = [];
+
+
+        const wall_thickness = 100;
+        const wall_height = vars.scale * 15;
+        const physics_margin = 0.95; // Keep the margin to prevent clipping
+
         const barrier_body_material = this.world.contactmaterials[1].materials[0];
         let barrier;
-        const physics_margin = 0.9; // Make physics box 95% of the visible size
 
         // Top wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
-        barrier.position.set(0, this.h * physics_margin, 0); // <-- Change is here
+        barrier = new CANNON.RigidBody(0, new CANNON.Box(new CANNON.Vec3(this.w, wall_thickness, wall_height)), barrier_body_material);
+        barrier.position.set(0, this.h * physics_margin + wall_thickness, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Bottom wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
-        barrier.position.set(0, -this.h * physics_margin, 0); // <-- Change is here
+        barrier = new CANNON.RigidBody(0, new CANNON.Box(new CANNON.Vec3(this.w, wall_thickness, wall_height)), barrier_body_material);
+        barrier.position.set(0, -this.h * physics_margin - wall_thickness, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Right wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -Math.PI/2);
-        barrier.position.set(this.w * physics_margin, 0, 0); // <-- Change is here
+        barrier = new CANNON.RigidBody(0, new CANNON.Box(new CANNON.Vec3(wall_thickness, this.h, wall_height)), barrier_body_material);
+        barrier.position.set(this.w * physics_margin + wall_thickness, 0, 0);
         this.world.add(barrier); this.barriers.push(barrier);
 
         // Left wall
-        barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrier_body_material);
-        barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), Math.PI/2);
-        barrier.position.set(-this.w * physics_margin, 0, 0); // <-- Change is here
+        barrier = new CANNON.RigidBody(0, new CANNON.Box(new CANNON.Vec3(wall_thickness, this.h, wall_height)), barrier_body_material);
+        barrier.position.set(-this.w * physics_margin - wall_thickness, 0, 0);
         this.world.add(barrier); this.barriers.push(barrier);
-
-        if (this.walls) {
-            this.walls.forEach(w => this.scene.remove(w));
-        }
-        this.walls = [];
 
 
         this.renderer.render(this.scene, this.camera);
@@ -229,6 +229,34 @@ const DICE = (function() {
     that.dice_box.prototype.setDice = function(diceToRoll) {
         this.diceToRoll = diceToRoll;
         this.updateAppearance({});
+    };
+
+    that.dice_box.prototype.applyPhysicsPreset = function(presetName) {
+        let gravity = -9.8, restitution = 0.7, friction = 0.1; // Default values
+
+        switch (presetName) {
+            case "Moon":
+                gravity = -1.6; // Moon's gravity
+                break;
+            case "Jupiter":
+                gravity = -24.8; // Jupiter's gravity
+                break;
+            case "Ice":
+                friction = 0.0; // No friction
+                break;
+            case "Bouncy":
+                restitution = 1.1; // Super bouncy
+                break;
+        }
+
+        // Apply the new values
+        this.world.gravity.z = gravity * 800;
+        if (this.world.contactmaterials.length >= 3) {
+            this.world.contactmaterials[0].restitution = restitution;
+            this.world.contactmaterials[2].restitution = restitution;
+            this.world.contactmaterials[0].friction = friction;
+            this.world.contactmaterials[2].friction = friction;
+        }
     };
 
     //call this to roll dice programatically or from click
@@ -540,10 +568,7 @@ const DICE = (function() {
 
     let threeD_dice = {};
 
-    that.clearCaches = function() {
-        threeD_dice.dice_material = null;
-        threeD_dice.d100_material = null;
-        threeD_dice.d4_material = null;
+    that.clearGeometryCache = function() {
         threeD_dice.d4_geometry = null;
         threeD_dice.d6_geometry = null;
         threeD_dice.d8_geometry = null;
@@ -552,17 +577,32 @@ const DICE = (function() {
         threeD_dice.d20_geometry = null;
     };
 
+    that.clearMaterialCache = function() {
+        threeD_dice.dice_material = null;
+        threeD_dice.d100_material = null;
+        threeD_dice.d4_material = null;
+    };
+
     that.dice_box.prototype.updateAppearance = function(options) {
-        if (options.diceColor) vars.dice_color = options.diceColor;
-        if (options.labelColor) vars.label_color = options.labelColor;
-        if (options.scale) vars.scale = options.scale;
+        // Check if colors have changed
+        if (options.diceColor || options.labelColor) {
+            if (options.diceColor) vars.dice_color = options.diceColor;
+            if (options.labelColor) vars.label_color = options.labelColor;
+            // If colors changed, clear the material cache
+            DICE.clearMaterialCache();
+        }
 
-        DICE.clearCaches();
+        // Check if size has changed
+        if (options.scale) {
+            vars.scale = options.scale;
+            // If size changed, clear the geometry cache
+            DICE.clearGeometryCache();
+        }
 
-        // Redraw the dice without starting a roll
+        // Redraw the dice with the updated properties
         this.clear();
         const notation = that.parse_notation(this.diceToRoll);
-        const vectors = this.generate_vectors(notation, {x:0, y:0}, 0);
+        const vectors = this.generate_vectors(notation, { x: 0, y: 0 }, 0);
         this.prepare_dices_for_roll(vectors);
         this.renderer.render(this.scene, this.camera);
     };
@@ -993,20 +1033,30 @@ const DICE = (function() {
         }
         dice.geometry = geom;
     }
-    
-    //playSound function and audio file copied from 
-    //https://github.com/chukwumaijem/roll-a-die
+
     that.playSound = function(outerContainer, soundVolume) {
         if (soundVolume === 0) return;
-        const audio = document.createElement('audio');
-        outerContainer.appendChild(audio);
-        const randsound = Math.floor(Math.random() * 4) + 1;
-        audio.src = 'assets/dice_rolling' + randsound + '.mp3';
-        audio.volume = soundVolume;
-        audio.play();
-        audio.onended = () => {
-            audio.remove();
-        };
+
+        // Get the number of dice currently in the scene
+        const diceCount = roller.box.dices.length;
+
+        // We'll play one sound for each die, up to a reasonable limit (e.g., 10)
+        // to prevent audio chaos with a huge number of dice.
+        const soundsToPlay = Math.min(diceCount, 3);
+
+        for (let i = 0; i < soundsToPlay; i++) {
+
+            const audio = new Audio();
+
+            const randsound = Math.floor(Math.random() * 4) + 1;
+            audio.src = `assets/dice_rolling${randsound}.mp3`;
+            audio.volume = soundVolume;
+
+            // Add a small, random delay to each sound to make it sound more natural
+            setTimeout(() => {
+                audio.play();
+            }, Math.random() * 200); // Delay of 0 to 200 milliseconds
+        }
     }
 
     return that;

@@ -41,6 +41,17 @@ const host = (function() {
         const diceColorSwatch = document.getElementById('dice-color-swatch');
         const labelColorSwatch = document.getElementById('label-color-swatch');
 
+        const physicsPresets = document.getElementById('physics-presets');
+
+
+        physicsPresets.addEventListener('change', (event) => {
+            const presetName = event.target.value;
+            // Apply locally and send to server
+            roller.box.applyPhysicsPreset(presetName);
+            socket.emit('set physics preset', { roomName, presetName });
+        });
+
+
         function setInitialSwatchColors() {
             diceColorSwatch.style.backgroundColor = diceColorInput.value;
             labelColorSwatch.style.backgroundColor = labelColorInput.value;
@@ -153,10 +164,6 @@ const host = (function() {
             roller.box.start_throw(before_roll_custom, after_roll_custom, animationVector);
         });
 
-        socket.on('cooldown', (data) => {
-            const resultElement = document.getElementById('result');
-            resultElement.innerHTML = `Please wait ${data.timeLeft} seconds.`;
-        });
 
         socket.on('notation update', (notation) => {
             const notationMap = new Map();
@@ -197,8 +204,26 @@ const host = (function() {
             roller.box.updateAppearance(newAppearance);
         });
 
-        socket.on('roll complete', () => {
+        // cooldown bar
+
+        const cooldownBarContainer = document.getElementById('cooldown-bar-container');
+        const cooldownBar = document.getElementById('cooldown-bar');
+
+        socket.on('start cooldown', (data) => {
+            cooldownBarContainer.style.display = 'block';
+
+            cooldownBar.style.transition = 'none';
+            cooldownBar.style.width = '100%';
+
+            setTimeout(() => {
+                cooldownBar.style.transition = `width ${data.duration / 1000}s linear`;
+                cooldownBar.style.width = '0%';
+            }, 50);
+        });
+
+        socket.on('enable roll', () => {
             roller.enableRoll();
+            cooldownBarContainer.style.display = 'none'; // Hide the bar
         });
 
         socket.on('play roll sound', () => {
@@ -214,6 +239,15 @@ const host = (function() {
 
         socket.on('user_left', (data) => {
             showNotification(data.message);
+        });
+
+        socket.on('physics preset update', (presetName) => {
+            const radioToCheck = document.querySelector(`input[name="physics"][value="${presetName}"]`);
+            if (radioToCheck) {
+                radioToCheck.checked = true;
+            }
+            // Apply the physics update
+            roller.box.applyPhysicsPreset(presetName);
         });
 
     };

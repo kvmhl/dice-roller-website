@@ -507,3 +507,56 @@ body.dark-mode .sidenav .close-btn {
     85%  { opacity: 1; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(-20px); }
 }
+
+.preset-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-top: 8px;
+}
+
+.preset-group label {
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.top_field {
+    text-align: center;
+    padding: 10px;
+    position: relative;
+    z-index: 100;
+}
+
+/* This container now holds the result and the bar.
+   display: inline-block is the key. It forces the container
+   to shrink to the width of its content (the result text). */
+.result-container {
+    position: relative;
+    display: inline-block;
+}
+
+/* The rest of your cooldown bar styles remain the same */
+.cooldown-bar-container {
+    width: 100%; /* This will now be 100% of the result-container's width */
+    height: 6px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+    display: none;
+}
+
+.cooldown-bar {
+    width: 100%;
+    height: 100%;
+    background-color: #bb86fc;
+    border-radius: 3px;
+    transition: width 0.2s linear;
+}
+
+body.dark-mode .cooldown-bar {
+    background-color: #d1b1ff;
+}
