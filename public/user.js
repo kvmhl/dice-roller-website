@@ -56,6 +56,16 @@ var user = (function() {
 
         socket.on('appearance update', (newAppearance) => {
             roller.box.updateAppearance(newAppearance);
+
+            // ACHTUNG: Die Logik für das DOM-Logo wird hier entfernt, da es in dice.js behandelt wird.
+            // const achillLogoElement = document.getElementById('achill-logo');
+            // if (achillLogoElement) {
+            //     if (newAppearance.showAchillLogo) {
+            //         achillLogoElement.classList.remove('hidden');
+            //     } else {
+            //         achillLogoElement.classList.add('hidden');
+            //     }
+            // }
         });
 
         socket.on('physics preset update', (presetName) => {
@@ -106,6 +116,10 @@ var user = (function() {
                 DICE.playSound(roller.box.container, 0.5);
             }
         });
+
+        // ACHTUNG: Die Logik für das DOM-Logo wird hier entfernt, da es in dice.js behandelt wird.
+        // Initial state for logo visibility (could come from server when client joins)
+        // Must not be initialized here as 'appearance update' is sent on join.
 
     };
 

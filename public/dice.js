@@ -592,6 +592,10 @@ const DICE = (function() {
             DICE.clearMaterialCache();
         }
 
+        if (options.backgroundColor) {
+            this.renderer.setClearColor(options.backgroundColor, 1);
+        }
+
         // Check if size has changed
         if (options.scale) {
             vars.scale = options.scale;

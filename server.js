@@ -77,7 +77,9 @@ io.on('connection', (socket) => {
                 appearance: {
                     diceColor: '#202020',
                     labelColor: '#aaaaaa',
-                    scale: 100
+                    backgroundColor: '#101010',
+                    scale: 100,
+                    showAchillLogo: false
                 },
                 physicsPreset: "Normal", // Default preset
                 isRolling: false

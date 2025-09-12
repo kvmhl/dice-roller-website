@@ -1,4 +1,3 @@
-// host.js - Host-specific logic
 "use strict";
 
 const host = (function() {
@@ -36,25 +35,37 @@ const host = (function() {
         const closeBtn = document.querySelector('.sidenav .close-btn');
         const diceColorInput = document.getElementById('dice-color-input');
         const labelColorInput = document.getElementById('label-color-input');
+        const backgroundColorInput = document.getElementById('background-color-input');
         const diceScaleInput = document.getElementById('dice-scale-input');
 
         const diceColorSwatch = document.getElementById('dice-color-swatch');
         const labelColorSwatch = document.getElementById('label-color-swatch');
+        const backgroundColorSwatch = document.getElementById('background-color-swatch');
 
         const physicsPresets = document.getElementById('physics-presets');
-
+        const recordBtn = document.getElementById('record-btn');
 
         physicsPresets.addEventListener('change', (event) => {
             const presetName = event.target.value;
-            // Apply locally and send to server
             roller.box.applyPhysicsPreset(presetName);
             socket.emit('set physics preset', { roomName, presetName });
         });
 
+        recordBtn.addEventListener('click', () => {
+            document.body.classList.add('recording');
+            toggleMenu();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.body.classList.remove('recording');
+            }
+        });
 
         function setInitialSwatchColors() {
             diceColorSwatch.style.backgroundColor = diceColorInput.value;
             labelColorSwatch.style.backgroundColor = labelColorInput.value;
+            backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
         }
 
         setInitialSwatchColors();
@@ -82,9 +93,7 @@ const host = (function() {
                     parts.push(`${quantity}${diceType}`);
                 }
             });
-
-            const newNotation = parts.join('+') || '1d6'; // Default to 1d6 if empty
-
+            const newNotation = parts.join('+') || '1d6';
             roller.box.setDice(newNotation);
             socket.emit('set notation', { roomName, newNotation });
         }
@@ -92,19 +101,15 @@ const host = (function() {
         diceRows.forEach(row => {
             const checkbox = row.querySelector('.dice-checkbox');
             const quantityInput = row.querySelector('.dice-quantity');
-
             checkbox.addEventListener('change', () => {
                 quantityInput.disabled = !checkbox.checked;
-                if (checkbox.checked) {
-                    if (quantityInput.value === '0') {
-                        quantityInput.value = '1';
-                    }
-                } else {
+                if (checkbox.checked && quantityInput.value === '0') {
+                    quantityInput.value = '1';
+                } else if (!checkbox.checked) {
                     quantityInput.value = '0';
                 }
                 updateDiceNotation();
             });
-
             quantityInput.addEventListener('input', () => {
                 if (parseInt(quantityInput.value, 10) > 0) {
                     checkbox.checked = true;
@@ -117,10 +122,12 @@ const host = (function() {
         function handleAppearanceChange() {
             diceColorSwatch.style.backgroundColor = diceColorInput.value;
             labelColorSwatch.style.backgroundColor = labelColorInput.value;
+            backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
 
             const newAppearance = {
                 diceColor: diceColorInput.value,
                 labelColor: labelColorInput.value,
+                backgroundColor: backgroundColorInput.value,
                 scale: parseInt(diceScaleInput.value, 10)
             };
             roller.box.updateAppearance(newAppearance);
@@ -129,6 +136,7 @@ const host = (function() {
 
         diceColorInput.addEventListener('input', handleAppearanceChange);
         labelColorInput.addEventListener('input', handleAppearanceChange);
+        backgroundColorInput.addEventListener('input', handleAppearanceChange);
         diceScaleInput.addEventListener('input', handleAppearanceChange);
 
         const notificationArea = document.getElementById('notification-area');
@@ -137,33 +145,23 @@ const host = (function() {
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.textContent = message;
-
             notificationArea.appendChild(notification);
-
-            // Remove the element from the DOM after the animation is done
-            setTimeout(() => {
-                notification.remove();
-            }, 4000); // Must match the animation duration in CSS
+            setTimeout(() => { notification.remove(); }, 4000);
         }
 
         // --- Socket Event Handlers ---
         socket.on('new roll', (data) => {
             const serverNotation = data.result;
             const animationVector = data.vector;
-
             document.getElementById('result').innerHTML = '';
-
             function before_roll_custom(notation) {
                 return serverNotation.result;
             }
-
             function after_roll_custom(notation) {
                 document.getElementById('result').innerHTML = notation.resultString;
             }
-
             roller.box.start_throw(before_roll_custom, after_roll_custom, animationVector);
         });
-
 
         socket.on('notation update', (notation) => {
             const notationMap = new Map();
@@ -175,46 +173,36 @@ const host = (function() {
                     }
                 });
             }
-
             diceRows.forEach(row => {
                 const type = row.dataset.diceType;
                 const count = notationMap.get(type) || 0;
-
                 const checkbox = row.querySelector('.dice-checkbox');
                 const quantityInput = row.querySelector('.dice-quantity');
-
                 quantityInput.value = count;
                 checkbox.checked = count > 0;
                 quantityInput.disabled = count === 0;
             });
-
             roller.box.setDice(notation);
         });
 
         socket.on('appearance update', (newAppearance) => {
-            // Update the input controls to reflect the server's state
             diceColorInput.value = newAppearance.diceColor;
             labelColorInput.value = newAppearance.labelColor;
+            backgroundColorInput.value = newAppearance.backgroundColor;
             diceScaleInput.value = newAppearance.scale;
-
             diceColorSwatch.style.backgroundColor = newAppearance.diceColor;
             labelColorSwatch.style.backgroundColor = newAppearance.labelColor;
-
-            // Update the visuals
+            backgroundColorSwatch.style.backgroundColor = newAppearance.backgroundColor;
             roller.box.updateAppearance(newAppearance);
         });
-
-        // cooldown bar
 
         const cooldownBarContainer = document.getElementById('cooldown-bar-container');
         const cooldownBar = document.getElementById('cooldown-bar');
 
         socket.on('start cooldown', (data) => {
             cooldownBarContainer.style.display = 'block';
-
             cooldownBar.style.transition = 'none';
             cooldownBar.style.width = '100%';
-
             setTimeout(() => {
                 cooldownBar.style.transition = `width ${data.duration / 1000}s linear`;
                 cooldownBar.style.width = '0%';
@@ -223,7 +211,7 @@ const host = (function() {
 
         socket.on('enable roll', () => {
             roller.enableRoll();
-            cooldownBarContainer.style.display = 'none'; // Hide the bar
+            cooldownBarContainer.style.display = 'none';
         });
 
         socket.on('play roll sound', () => {
@@ -233,26 +221,17 @@ const host = (function() {
             }
         });
 
-        socket.on('user_joined', (data) => {
-            showNotification(data.message);
-        });
-
-        socket.on('user_left', (data) => {
-            showNotification(data.message);
-        });
+        socket.on('user_joined', (data) => { showNotification(data.message); });
+        socket.on('user_left', (data) => { showNotification(data.message); });
 
         socket.on('physics preset update', (presetName) => {
             const radioToCheck = document.querySelector(`input[name="physics"][value="${presetName}"]`);
             if (radioToCheck) {
                 radioToCheck.checked = true;
             }
-            // Apply the physics update
             roller.box.applyPhysicsPreset(presetName);
         });
-
     };
-
-
 
     return that;
 }());

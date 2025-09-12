@@ -2,24 +2,21 @@
 <html lang='en'>
 <head>
     <meta charset='UTF-8' />
-    <title>Dice Roller - User</title>
+    <title>Dice Roller - PLAYER</title>
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <!-- FAVICON (Optional)
-         To display a logo in the browser tab, uncomment the line below
-         and make sure an image file named 'favicon.png' exists
-         in the 'public/assets/' folder.
-    -->
-    <!-- <link rel='icon shortcut' href='/assets/favicon.png' /> -->
     <link rel='stylesheet' href='/styles.css' />
 </head>
 <body onload="user.init()">
 
-<div class="toggle-switch">
-    <label class="switch-label">
-        <input type="checkbox" class="checkbox" id="theme-checkbox">
-        <span class="slider"></span>
-    </label>
+<div id="settings-icon" class="menu-icon disabled">
+    <button class="setting-btn">
+        <span class="bar bar1"></span>
+        <span class="bar bar2"></span>
+        <span class="bar bar1"></span>
+    </button>
 </div>
+
+<div id="overlay"></div>
 
 <div id="diceRoller"></div>
 
@@ -43,6 +40,5 @@
 <script src="/dice.js"></script>
 <script src="/roller.js"></script>
 <script src="/user.js"></script>
-<script src="/theme.js"></script>
 </body>
 </html>

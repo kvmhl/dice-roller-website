@@ -28,50 +28,42 @@
                 <input type="checkbox" id="d4-checkbox" class="dice-checkbox">
                 <input type="number" id="d4-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
-
             <div class="dice-row" data-dice-type="d6">
                 <label for="d6-checkbox">D6</label>
                 <input type="checkbox" id="d6-checkbox" class="dice-checkbox" checked>
                 <input type="number" id="d6-quantity" class="dice-quantity" value="1" min="0" max="99">
             </div>
-
             <div class="dice-row" data-dice-type="d8">
                 <label for="d8-checkbox">D8</label>
                 <input type="checkbox" id="d8-checkbox" class="dice-checkbox">
                 <input type="number" id="d8-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
-
             <div class="dice-row" data-dice-type="d10">
                 <label for="d10-checkbox">D10</label>
                 <input type="checkbox" id="d10-checkbox" class="dice-checkbox">
                 <input type="number" id="d10-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
-
             <div class="dice-row" data-dice-type="d12">
                 <label for="d12-checkbox">D12</label>
                 <input type="checkbox" id="d12-checkbox" class="dice-checkbox">
                 <input type="number" id="d12-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
-
             <div class="dice-row" data-dice-type="d20">
                 <label for="d20-checkbox">D20</label>
                 <input type="checkbox" id="d20-checkbox" class="dice-checkbox">
                 <input type="number" id="d20-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
             </div>
         </div>
-
-        <div class="setting">
-            <h3>Experimental Settings</h3>
-            <div class="preset-group" id="physics-presets">
-                <label><input type="radio" name="physics" value="Normal" checked> Normal</label>
-                <label><input type="radio" name="physics" value="Moon"> Moon Gravity</label>
-                <label><input type="radio" name="physics" value="Jupiter"> Jupiter Gravity</label>
-                <label><input type="radio" name="physics" value="Ice"> Ice Skating</label>
-                <label><input type="radio" name="physics" value="Bouncy"> Bouncy</label>
-            </div>
-        </div>
-
+    </div> <div class="setting">
+    <h3>Experimental Settings</h3>
+    <div class="preset-group" id="physics-presets">
+        <label><input type="radio" name="physics" value="Normal" checked> Normal</label>
+        <label><input type="radio" name="physics" value="Moon"> Moon Gravity</label>
+        <label><input type="radio" name="physics" value="Jupiter"> Jupiter Gravity</label>
+        <label><input type="radio" name="physics" value="Ice"> Ice Skating</label>
+        <label><input type="radio" name="physics" value="Bouncy"> Bouncy</label>
     </div>
+</div>
 
     <div class="setting">
         <label>Dice Color</label>
@@ -90,20 +82,24 @@
     </div>
 
     <div class="setting">
+        <label>Background Color</label>
+        <label class="custom-color-picker">
+            <span id="background-color-swatch"></span>
+            <input type="color" id="background-color-input" value="#101010">
+        </label>
+    </div>
+
+    <div class="setting">
         <label for="dice-scale-input">Dice Size</label>
         <input type="range" id="dice-scale-input" min="50" max="150" value="100">
+    </div>
+
+    <div class="setting">
+        <button id="record-btn">Record</button>
     </div>
 </div>
 
 <div id="overlay"></div>
-
-<div class="toggle-switch">
-    <label class="switch-label">
-        <input type="checkbox" class="checkbox" id="theme-checkbox">
-        <span class="slider"></span>
-    </label>
-</div>
-
 <div id="diceRoller"></div>
 
 <main id="diceRollerUI">
@@ -126,6 +122,5 @@
 <script src="/dice.js"></script>
 <script src="/roller.js"></script>
 <script src="/host.js"></script>
-<script src="/theme.js"></script>
 </body>
 </html>

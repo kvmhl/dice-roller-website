@@ -560,3 +560,9 @@ body.dark-mode .sidenav .close-btn {
 body.dark-mode .cooldown-bar {
     background-color: #d1b1ff;
 }
+
+body.recording .top_field,
+body.recording #settings-icon,
+body.recording #notification-area {
+    display: none;
+}
