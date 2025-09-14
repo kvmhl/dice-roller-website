@@ -1,49 +1,31 @@
-// roller.js - Shared dice logic
 "use strict";
 
 var roller = (function() {
     var that = {};
-    var elem = {};
     var box = null;
     var socket;
     var roomName;
-
-    // Variables to track the swipe action
-    var mouse_time;
-    var mouse_start;
     let canRequestRoll = true;
 
     that.init = function(socketInstance, currentRoomName) {
         socket = socketInstance;
         roomName = currentRoomName;
 
-        elem.container = $t.id('diceRoller');
-        elem.result = $t.id('result');
-        elem.center_div = $t.id('center_div');
-
-        box = new DICE.dice_box(elem.container);
+        const container = $t.id('diceRoller');
+        const center_div = $t.id('center_div');
+        box = new DICE.dice_box(container);
         that.box = box;
 
-        // --- SWIPE-TO-ROLL LOGIC ---
+        // --- All Input Logic (Mouse, Touch, Keyboard) is now handled here ---
+        let mouse_start;
 
-        that.enableRoll = function() {
-            canRequestRoll = true;
-        };
-
-        $t.bind(elem.center_div, ['mousedown', 'touchstart'], function(ev) {
+        $t.bind(center_div, ['mousedown', 'touchstart'], function(ev) {
             ev.preventDefault();
-            mouse_time = (new Date()).getTime();
             mouse_start = $t.get_mouse_coords(ev);
         });
 
-        $t.bind(elem.center_div, ['mouseup', 'touchend'], function(ev) {
+        $t.bind(center_div, ['mouseup', 'touchend'], function(ev) {
             if (mouse_start === undefined) return;
-
-            // The client now only checks its own simple lock.
-            if (!canRequestRoll) {
-                mouse_start = undefined;
-                return;
-            }
 
             var m = $t.get_mouse_coords(ev);
             var vector = { x: m.x - mouse_start.x, y: -(m.y - mouse_start.y) };
@@ -52,13 +34,27 @@ var roller = (function() {
 
             if (dist < 20) return;
 
-            // Lock the client immediately to prevent spamming clicks
-            canRequestRoll = false;
+            that.requestRoll(vector);
+        });
 
-            const notation = that.box.diceToRoll;
-            socket.emit('request roll', { roomName, notation, vector });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                const vector = { x: (Math.random() - 0.5) * box.w * 0.5, y: box.h };
+                that.requestRoll(vector);
+            }
         });
     };
+
+    that.enableRoll = function() {
+        canRequestRoll = true;
+    };
+
+    that.requestRoll = function(vector) {
+        if (!canRequestRoll) return;
+        canRequestRoll = false;
+        socket.emit('request roll', { roomName, vector });
+    }
 
     return that;
 }());

@@ -4,6 +4,78 @@ const host = (function() {
     const that = {};
     let socket = null;
     let roomName = '';
+    const diceTypes = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20'];
+    let diceConfiguration = [];
+
+    function generateDiceRows() {
+        const container = document.getElementById('dice-selector-container');
+        container.innerHTML = '';
+        diceTypes.forEach(type => {
+            const row = document.createElement('div');
+            row.className = 'dice-row';
+            row.dataset.diceType = type;
+            row.innerHTML = `
+                <label>${type.toUpperCase()}</label>
+                <span id="${type}-quantity" class="dice-quantity-display">0</span>
+                <button class="quantity-btn remove-btn">-</button>
+                <button class="quantity-btn add-btn">+</button>
+                <span id="${type}-color-swatch" class="dice-color-swatch-display"></span>
+                <button class="dice-settings-btn">⚙️</button>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    function updateDiceCount(type, change) {
+        if (change > 0) {
+            const newDie = {
+                id: `${type}-${Date.now()}-${Math.random()}`,
+                type: type,
+                diceColor: '#cccccc',
+                labelColor: '#222222',
+                metalness: 0.2,
+                roughness: 0.8,
+                texture: { albedo: null, metalness: null, roughness: null, normal: null }
+            };
+            diceConfiguration.push(newDie);
+        } else {
+            const lastDieIndex = diceConfiguration.map(d => d.type).lastIndexOf(type);
+            if (lastDieIndex !== -1) {
+                diceConfiguration.splice(lastDieIndex, 1);
+            }
+        }
+        updateUIFromConfig();
+        socket.emit('set diceSet', { roomName, diceSet: diceConfiguration });
+    }
+
+    function updateUIFromConfig() {
+        const counts = {};
+        diceTypes.forEach(type => counts[type] = 0);
+        if (diceConfiguration) {
+            diceConfiguration.forEach(die => counts[die.type] = (counts[die.type] || 0) + 1);
+        }
+
+        diceTypes.forEach(type => {
+            const quantityDisplay = document.getElementById(`${type}-quantity`);
+            if (quantityDisplay) quantityDisplay.textContent = counts[type];
+
+            const diceOfType = diceConfiguration.filter(d => d.type === type);
+            const swatch = document.getElementById(`${type}-color-swatch`);
+            if (swatch) {
+                swatch.style.backgroundColor = diceOfType.length > 0 ? diceOfType[0].diceColor : '#888';
+            }
+        });
+
+        const parts = [];
+        diceTypes.forEach(type => {
+            if (counts[type] > 0) parts.push(`${counts[type]}${type}`);
+        });
+        const newNotation = parts.join('+') || '0';
+        if (roller && roller.box) {
+            roller.box.setDice(newNotation, diceConfiguration);
+        }
+    }
+
 
     that.init = function() {
         const params = new URLSearchParams(window.location.search);
@@ -13,6 +85,7 @@ const host = (function() {
             return;
         }
 
+        generateDiceRows();
         socket = io();
 
         socket.on('connect', () => {
@@ -28,31 +101,46 @@ const host = (function() {
 
         roller.init(socket, roomName);
 
-        // --- Menu Logic ---
         const settingsIcon = document.getElementById('settings-icon');
         const sidenav = document.getElementById('sidenav');
         const overlay = document.getElementById('overlay');
         const closeBtn = document.querySelector('.sidenav .close-btn');
-        const diceColorInput = document.getElementById('dice-color-input');
-        const labelColorInput = document.getElementById('label-color-input');
         const backgroundColorInput = document.getElementById('background-color-input');
         const diceScaleInput = document.getElementById('dice-scale-input');
-
-        const diceColorSwatch = document.getElementById('dice-color-swatch');
-        const labelColorSwatch = document.getElementById('label-color-swatch');
+        const simSpeedInput = document.getElementById('simulation-speed-input');
         const backgroundColorSwatch = document.getElementById('background-color-swatch');
-
         const physicsPresets = document.getElementById('physics-presets');
         const recordBtn = document.getElementById('record-btn');
+        const portraitBtn = document.getElementById('portrait-btn');
+        const diceModal = document.getElementById('dice-settings-modal');
+        const closeDiceModalBtn = diceModal.querySelector('.close-modal-btn');
+        const modalTitle = document.getElementById('modal-title');
+
+        const textureModal = document.getElementById('texture-settings-modal');
+        const textureSettingsBtn = document.getElementById('texture-settings-btn');
+        const closeTextureModalBtn = textureModal.querySelector('.close-modal-btn');
+        const bgTextureInput = document.getElementById('background-texture-input');
+        const clearTextureBtn = document.getElementById('clear-texture-btn');
+        const achillBgCheckbox = document.getElementById('achill-bg-checkbox');
+        let currentEditingDiceType = null;
+
 
         physicsPresets.addEventListener('change', (event) => {
             const presetName = event.target.value;
-            roller.box.applyPhysicsPreset(presetName);
+            if (roller && roller.box) roller.box.applyPhysicsPreset(presetName);
             socket.emit('set physics preset', { roomName, presetName });
         });
 
         recordBtn.addEventListener('click', () => {
             document.body.classList.add('recording');
+            toggleMenu();
+        });
+
+        portraitBtn.addEventListener('click', () => {
+            document.body.classList.toggle('portrait-mode');
+            setTimeout(() => {
+                if (roller && roller.box) roller.box.reinit(roller.box.container);
+            }, 100);
             toggleMenu();
         });
 
@@ -63,9 +151,7 @@ const host = (function() {
         });
 
         function setInitialSwatchColors() {
-            diceColorSwatch.style.backgroundColor = diceColorInput.value;
-            labelColorSwatch.style.backgroundColor = labelColorInput.value;
-            backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
+            if (backgroundColorSwatch) backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
         }
 
         setInitialSwatchColors();
@@ -76,68 +162,220 @@ const host = (function() {
             overlay.classList.toggle('open');
         }
 
+        function openDiceModal(diceType) {
+            currentEditingDiceType = diceType;
+            modalTitle.textContent = `Edit ${diceType.toUpperCase()} Materials`;
+            const modalDiceList = document.getElementById('modal-dice-list');
+            modalDiceList.innerHTML = '';
+
+            const diceOfType = diceConfiguration.filter(d => d.type === diceType);
+            if (diceOfType.length === 0) {
+                modalDiceList.innerHTML = '<p>Add dice of this type to set individual materials.</p>';
+            } else {
+                diceOfType.forEach((die, index) => {
+                    const dieContainer = document.createElement('div');
+                    dieContainer.className = 'dice-instance-container';
+                    dieContainer.innerHTML = `
+                        <h4>${diceType.toUpperCase()} #${index + 1}</h4>
+                        <div class="modal-setting">
+                            <label>Surface Color</label>
+                            <input type="color" class="modal-dice-color-picker" data-id="${die.id}" value="${die.diceColor}">
+                        </div>
+                        <div class="modal-setting">
+                            <label>Label Color</label>
+                            <input type="color" class="modal-label-color-picker" data-id="${die.id}" value="${die.labelColor}">
+                        </div>
+                        <div class="modal-setting">
+                            <label>Metalness</label>
+                            <input type="range" class="modal-metalness-slider" data-id="${die.id}" min="0" max="1" step="0.01" value="${die.metalness || 0.5}">
+                        </div>
+                        <div class="modal-setting">
+                            <label>Roughness</label>
+                            <input type="range" class="modal-roughness-slider" data-id="${die.id}" min="0" max="1" step="0.01" value="${die.roughness || 0.5}">
+                        </div>
+                        <hr>
+                    `;
+                    modalDiceList.appendChild(dieContainer);
+                });
+            }
+
+            diceModal.style.display = 'block';
+
+            modalDiceList.querySelectorAll('.modal-dice-color-picker, .modal-label-color-picker, .modal-metalness-slider, .modal-roughness-slider').forEach(el => {
+                el.addEventListener('input', handleIndividualMaterialChange);
+            });
+        }
+
+        function openTextureModal() {
+            const modalDiceList = document.getElementById('modal-dice-texture-list');
+            modalDiceList.innerHTML = '';
+
+            diceTypes.forEach(type => {
+                const dieContainer = document.createElement('div');
+                dieContainer.innerHTML = `
+                    <h4>${type.toUpperCase()} Textures</h4>
+                     <div class="modal-setting">
+                        <label>Albedo (Color)</label>
+                        <input type="file" class="modal-texture-picker" data-type="${type}" data-texture-type="albedo" accept="image/*">
+                    </div>
+                     <div class="modal-setting">
+                        <label>Metalness Map</label>
+                        <input type="file" class="modal-texture-picker" data-type="${type}" data-texture-type="metalness" accept="image/*">
+                    </div>
+                     <div class="modal-setting">
+                        <label>Roughness Map</label>
+                        <input type="file" class="modal-texture-picker" data-type="${type}" data-texture-type="roughness" accept="image/*">
+                    </div>
+                    <div class="modal-setting">
+                        <label>Normal Map</label>
+                        <input type="file" class="modal-texture-picker" data-type="${type}" data-texture-type="normal" accept="image/*">
+                    </div>
+                    <hr>
+                `;
+                modalDiceList.appendChild(dieContainer);
+            });
+            textureModal.style.display = 'block';
+            modalDiceList.querySelectorAll('.modal-texture-picker').forEach(picker => {
+                picker.addEventListener('change', handleDiceTextureChange);
+            });
+        }
+
+        function handleIndividualMaterialChange(event) {
+            const dieId = event.target.dataset.id;
+            const die = diceConfiguration.find(d => d.id === dieId);
+            if (die) {
+                const target = event.target;
+                if (target.classList.contains('modal-dice-color-picker')) {
+                    die.diceColor = target.value;
+                } else if (target.classList.contains('modal-label-color-picker')) {
+                    die.labelColor = target.value;
+                } else if (target.classList.contains('modal-metalness-slider')) {
+                    die.metalness = parseFloat(target.value);
+                } else if (target.classList.contains('modal-roughness-slider')) {
+                    die.roughness = parseFloat(target.value);
+                }
+                updateUIFromConfig();
+                handleGeneralAppearanceChange();
+            }
+        }
+
+        function handleDiceTextureChange(event) {
+            const diceType = event.target.dataset.type;
+            const textureType = event.target.dataset.textureType;
+            const file = event.target.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    diceConfiguration.forEach(die => {
+                        if (die.type === diceType) {
+                            if (!die.texture) die.texture = {};
+                            die.texture[textureType] = e.target.result;
+                        }
+                    });
+                    handleGeneralAppearanceChange();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function closeModal() {
+            diceModal.style.display = 'none';
+            textureModal.style.display = 'none';
+            currentEditingDiceType = null;
+        }
+
         settingsIcon.addEventListener('click', toggleMenu);
         closeBtn.addEventListener('click', toggleMenu);
         overlay.addEventListener('click', toggleMenu);
+        closeDiceModalBtn.addEventListener('click', closeModal);
+        closeTextureModalBtn.addEventListener('click', closeModal);
+        textureSettingsBtn.addEventListener('click', openTextureModal);
 
-        const diceRows = document.querySelectorAll('.dice-row');
-
-        function updateDiceNotation() {
-            const parts = [];
-            diceRows.forEach(row => {
-                const quantityInput = row.querySelector('.dice-quantity');
-                const quantity = parseInt(quantityInput.value, 10);
-
-                if (quantity > 0) {
-                    const diceType = row.dataset.diceType;
-                    parts.push(`${quantity}${diceType}`);
-                }
-            });
-            const newNotation = parts.join('+') || '1d6';
-            roller.box.setDice(newNotation);
-            socket.emit('set notation', { roomName, newNotation });
-        }
-
-        diceRows.forEach(row => {
-            const checkbox = row.querySelector('.dice-checkbox');
-            const quantityInput = row.querySelector('.dice-quantity');
-            checkbox.addEventListener('change', () => {
-                quantityInput.disabled = !checkbox.checked;
-                if (checkbox.checked && quantityInput.value === '0') {
-                    quantityInput.value = '1';
-                } else if (!checkbox.checked) {
-                    quantityInput.value = '0';
-                }
-                updateDiceNotation();
-            });
-            quantityInput.addEventListener('input', () => {
-                if (parseInt(quantityInput.value, 10) > 0) {
-                    checkbox.checked = true;
-                    quantityInput.disabled = false;
-                }
-                updateDiceNotation();
-            });
+        window.addEventListener('click', (event) => {
+            if (event.target == diceModal || event.target == textureModal) {
+                closeModal();
+            }
         });
 
-        function handleAppearanceChange() {
-            diceColorSwatch.style.backgroundColor = diceColorInput.value;
-            labelColorSwatch.style.backgroundColor = labelColorInput.value;
-            backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
+        function setupDiceRowListeners() {
+            document.querySelectorAll('.dice-row').forEach(row => {
+                const addBtn = row.querySelector('.add-btn');
+                const removeBtn = row.querySelector('.remove-btn');
+                const settingsBtn = row.querySelector('.dice-settings-btn');
+                const diceType = row.dataset.diceType;
 
+                addBtn.addEventListener('click', () => updateDiceCount(diceType, 1));
+                removeBtn.addEventListener('click', () => updateDiceCount(diceType, -1));
+                settingsBtn.addEventListener('click', () => openDiceModal(diceType));
+            });
+        }
+
+        setupDiceRowListeners();
+
+        function handleGeneralAppearanceChange(extraOptions = {}) {
+            if (backgroundColorSwatch) backgroundColorSwatch.style.backgroundColor = backgroundColorInput.value;
             const newAppearance = {
-                diceColor: diceColorInput.value,
-                labelColor: labelColorInput.value,
                 backgroundColor: backgroundColorInput.value,
-                scale: parseInt(diceScaleInput.value, 10)
+                scale: parseInt(diceScaleInput.value, 10),
+                simulationSpeed: parseFloat(simSpeedInput.value),
+                useAchillBackground: achillBgCheckbox.checked,
+                ...extraOptions
             };
-            roller.box.updateAppearance(newAppearance);
+            socket.emit('set diceSet', { roomName, diceSet: diceConfiguration });
             socket.emit('set appearance', { roomName, newAppearance });
         }
 
-        diceColorInput.addEventListener('input', handleAppearanceChange);
-        labelColorInput.addEventListener('input', handleAppearanceChange);
-        backgroundColorInput.addEventListener('input', handleAppearanceChange);
-        diceScaleInput.addEventListener('input', handleAppearanceChange);
+        // --- START OF CORRECTED CODE BLOCK ---
+
+        // Wenn der Nutzer die Hintergrundfarbe ändert
+        backgroundColorInput.addEventListener('input', () => {
+            achillBgCheckbox.checked = false; // Deaktiviere die Checkbox
+            handleGeneralAppearanceChange({ backgroundImage: null, useAchillBackground: false });
+        });
+
+        // Wenn der Nutzer die "Achill Background"-Checkbox ändert
+        achillBgCheckbox.addEventListener('change', () => {
+            if (achillBgCheckbox.checked) {
+                // Wenn aktiviert, lösche das benutzerdefinierte Bild
+                bgTextureInput.value = '';
+                handleGeneralAppearanceChange({
+                    backgroundImage: null,
+                    useAchillBackground: true
+                });
+            } else {
+                // Wenn deaktiviert, falle zurück zur normalen Farbe
+                handleGeneralAppearanceChange({ useAchillBackground: false });
+            }
+        });
+
+        // Wenn der Nutzer ein eigenes Hintergrundbild hochlädt
+        bgTextureInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    // Ein eigenes Bild deaktiviert den Achill Background
+                    achillBgCheckbox.checked = false;
+                    handleGeneralAppearanceChange({ backgroundImage: e.target.result, useAchillBackground: false });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Wenn der Nutzer das eigene Hintergrundbild löscht
+        clearTextureBtn.addEventListener('click', () => {
+            bgTextureInput.value = '';
+            achillBgCheckbox.checked = false; // Auch hier deaktivieren
+            handleGeneralAppearanceChange({ backgroundImage: null, useAchillBackground: false });
+        });
+
+        // Die Listener für diceScaleInput und simSpeedInput bleiben unverändert
+        diceScaleInput.addEventListener('input', handleGeneralAppearanceChange);
+        simSpeedInput.addEventListener('input', handleGeneralAppearanceChange);
+
+        // --- END OF CORRECTED CODE BLOCK ---
+
 
         const notificationArea = document.getElementById('notification-area');
 
@@ -149,51 +387,43 @@ const host = (function() {
             setTimeout(() => { notification.remove(); }, 4000);
         }
 
-        // --- Socket Event Handlers ---
         socket.on('new roll', (data) => {
-            const serverNotation = data.result;
             const animationVector = data.vector;
-            document.getElementById('result').innerHTML = '';
-            function before_roll_custom(notation) {
-                return serverNotation.result;
+            if (roller && roller.box) {
+                document.getElementById('result').innerHTML = 'Rolling...';
+                roller.box.start_throw(null, (notation) => {
+                    document.getElementById('result').innerHTML = notation.resultString;
+                }, animationVector);
             }
-            function after_roll_custom(notation) {
-                document.getElementById('result').innerHTML = notation.resultString;
-            }
-            roller.box.start_throw(before_roll_custom, after_roll_custom, animationVector);
         });
 
-        socket.on('notation update', (notation) => {
-            const notationMap = new Map();
-            if (notation) {
-                notation.split('+').forEach(part => {
-                    const match = part.match(/(\d+)(d\d+)/);
-                    if (match) {
-                        notationMap.set(match[2], parseInt(match[1], 10));
-                    }
-                });
-            }
-            diceRows.forEach(row => {
-                const type = row.dataset.diceType;
-                const count = notationMap.get(type) || 0;
-                const checkbox = row.querySelector('.dice-checkbox');
-                const quantityInput = row.querySelector('.dice-quantity');
-                quantityInput.value = count;
-                checkbox.checked = count > 0;
-                quantityInput.disabled = count === 0;
-            });
-            roller.box.setDice(notation);
+        socket.on('diceSet update', (newDiceSet) => {
+            diceConfiguration = newDiceSet;
+            updateUIFromConfig();
         });
 
         socket.on('appearance update', (newAppearance) => {
-            diceColorInput.value = newAppearance.diceColor;
-            labelColorInput.value = newAppearance.labelColor;
-            backgroundColorInput.value = newAppearance.backgroundColor;
-            diceScaleInput.value = newAppearance.scale;
-            diceColorSwatch.style.backgroundColor = newAppearance.diceColor;
-            labelColorSwatch.style.backgroundColor = newAppearance.labelColor;
-            backgroundColorSwatch.style.backgroundColor = newAppearance.backgroundColor;
-            roller.box.updateAppearance(newAppearance);
+            if(newAppearance.backgroundColor) {
+                backgroundColorInput.value = newAppearance.backgroundColor;
+                if (backgroundColorSwatch) backgroundColorSwatch.style.backgroundColor = newAppearance.backgroundColor;
+            }
+            if(newAppearance.scale) diceScaleInput.value = newAppearance.scale;
+            if(newAppearance.simulationSpeed) {
+                simSpeedInput.value = newAppearance.simulationSpeed;
+                if (roller && roller.box) roller.box.setSpeed(newAppearance.simulationSpeed);
+            }
+            if ('backgroundImage' in newAppearance) {
+                if (!newAppearance.backgroundImage) {
+                    bgTextureInput.value = '';
+                }
+            }
+            if ('useAchillBackground' in newAppearance) {
+                achillBgCheckbox.checked = newAppearance.useAchillBackground;
+            }
+
+            if (roller && roller.box) {
+                roller.box.updateAppearance(newAppearance);
+            }
         });
 
         const cooldownBarContainer = document.getElementById('cooldown-bar-container');
@@ -210,15 +440,12 @@ const host = (function() {
         });
 
         socket.on('enable roll', () => {
-            roller.enableRoll();
+            if (roller) roller.enableRoll();
             cooldownBarContainer.style.display = 'none';
         });
 
         socket.on('play roll sound', () => {
-            const parsedNotation = DICE.parse_notation(roller.box.diceToRoll);
-            if (parsedNotation.set.length > 0) {
-                DICE.playSound(roller.box.container, 0.5);
-            }
+            if (roller && roller.box) roller.box.playSound();
         });
 
         socket.on('user_joined', (data) => { showNotification(data.message); });
@@ -229,7 +456,9 @@ const host = (function() {
             if (radioToCheck) {
                 radioToCheck.checked = true;
             }
-            roller.box.applyPhysicsPreset(presetName);
+            if (roller && roller.box) {
+                roller.box.applyPhysicsPreset(presetName);
+            }
         });
     };
 

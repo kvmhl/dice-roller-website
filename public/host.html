@@ -5,6 +5,84 @@
     <title>Dice Roller - HOST</title>
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
     <link rel='stylesheet' href='/styles.css' />
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 0;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        }
+        .close-modal-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .dice-color-swatch-display {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body.portrait-mode #diceRoller,
+        body.portrait-mode #diceRollerUI {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            width: calc(100vh * 9 / 16);
+            height: 100vh;
+            max-width: 100vw;
+            transform: translateX(-50%);
+            border: none;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            box-sizing: border-box;
+            z-index: 50;
+        }
+        body.portrait-mode #overlay {
+            z-index: 49;
+        }
+        #modal-dice-list, #modal-dice-texture-list {
+            max-height: 40vh;
+            overflow-y: auto;
+            padding-right: 15px;
+        }
+        .modal-setting {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+        .modal-setting label {
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+        .texture-upload-container {
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .texture-upload-container label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body onload="host.init()">
 
@@ -21,72 +99,32 @@
     <h2>Host Settings</h2>
 
     <div class="setting">
-        <label>Dice Selection</label>
+        <label>Dice Selection & Colors</label>
         <div id="dice-selector-container">
-            <div class="dice-row" data-dice-type="d4">
-                <label for="d4-checkbox">D4</label>
-                <input type="checkbox" id="d4-checkbox" class="dice-checkbox">
-                <input type="number" id="d4-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
-            </div>
-            <div class="dice-row" data-dice-type="d6">
-                <label for="d6-checkbox">D6</label>
-                <input type="checkbox" id="d6-checkbox" class="dice-checkbox" checked>
-                <input type="number" id="d6-quantity" class="dice-quantity" value="1" min="0" max="99">
-            </div>
-            <div class="dice-row" data-dice-type="d8">
-                <label for="d8-checkbox">D8</label>
-                <input type="checkbox" id="d8-checkbox" class="dice-checkbox">
-                <input type="number" id="d8-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
-            </div>
-            <div class="dice-row" data-dice-type="d10">
-                <label for="d10-checkbox">D10</label>
-                <input type="checkbox" id="d10-checkbox" class="dice-checkbox">
-                <input type="number" id="d10-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
-            </div>
-            <div class="dice-row" data-dice-type="d12">
-                <label for="d12-checkbox">D12</label>
-                <input type="checkbox" id="d12-checkbox" class="dice-checkbox">
-                <input type="number" id="d12-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
-            </div>
-            <div class="dice-row" data-dice-type="d20">
-                <label for="d20-checkbox">D20</label>
-                <input type="checkbox" id="d20-checkbox" class="dice-checkbox">
-                <input type="number" id="d20-quantity" class="dice-quantity" value="0" min="0" max="99" disabled>
-            </div>
         </div>
-    </div> <div class="setting">
-    <h3>Experimental Settings</h3>
-    <div class="preset-group" id="physics-presets">
-        <label><input type="radio" name="physics" value="Normal" checked> Normal</label>
-        <label><input type="radio" name="physics" value="Moon"> Moon Gravity</label>
-        <label><input type="radio" name="physics" value="Jupiter"> Jupiter Gravity</label>
-        <label><input type="radio" name="physics" value="Ice"> Ice Skating</label>
-        <label><input type="radio" name="physics" value="Bouncy"> Bouncy</label>
-    </div>
-</div>
-
-    <div class="setting">
-        <label>Dice Color</label>
-        <label class="custom-color-picker">
-            <span id="dice-color-swatch"></span>
-            <input type="color" id="dice-color-input" value="#202020">
-        </label>
     </div>
 
     <div class="setting">
-        <label>Number Color</label>
-        <label class="custom-color-picker">
-            <span id="label-color-swatch"></span>
-            <input type="color" id="label-color-input" value="#aaaaaa">
-        </label>
+        <h3>Experimental Settings</h3>
+        <div class="preset-group" id="physics-presets">
+            <label><input type="radio" name="physics" value="Normal" checked> Normal</label>
+            <label><input type="radio" name="physics" value="Moon"> Moon Gravity</label>
+            <label><input type="radio" name="physics" value="Jupiter"> Jupiter Gravity</label>
+            <label><input type="radio" name="physics" value="Ice"> Ice Skating</label>
+            <label><input type="radio" name="physics" value="Bouncy"> Bouncy</label>
+        </div>
     </div>
 
     <div class="setting">
         <label>Background Color</label>
         <label class="custom-color-picker">
             <span id="background-color-swatch"></span>
-            <input type="color" id="background-color-input" value="#101010">
+            <input type="color" id="background-color-input" value="#212121">
         </label>
+    </div>
+
+    <div class="setting">
+        <label><input type="checkbox" id="achill-bg-checkbox"> Achill Background</label>
     </div>
 
     <div class="setting">
@@ -95,9 +133,44 @@
     </div>
 
     <div class="setting">
+        <label for="simulation-speed-input">Simulation Speed</label>
+        <input type="range" id="simulation-speed-input" min="0.1" max="2" step="0.1" value="1">
+    </div>
+
+    <div class="setting">
+        <button id="texture-settings-btn">Advanced Texture Settings</button>
+    </div>
+
+    <div class="setting">
         <button id="record-btn">Record</button>
+        <button id="portrait-btn" style="margin-top: 10px;">Portrait View</button>
     </div>
 </div>
+
+<div id="dice-settings-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal-btn">&times;</span>
+        <h3 id="modal-title">Edit D6 Materials</h3>
+        <div id="modal-dice-list">
+        </div>
+    </div>
+</div>
+
+<div id="texture-settings-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal-btn">&times;</span>
+        <h3>Texture Settings</h3>
+        <div class="modal-setting">
+            <label for="background-texture-input">Custom Background</label>
+            <input type="file" id="background-texture-input" accept="image/*">
+            <button id="clear-texture-btn" style="margin-top: 5px;">Clear</button>
+        </div>
+        <hr>
+        <div id="modal-dice-texture-list">
+        </div>
+    </div>
+</div>
+
 
 <div id="overlay"></div>
 <div id="diceRoller"></div>
@@ -116,8 +189,8 @@
 </main>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="/libs/three.min.js"></script>
-<script src="/libs/cannon.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 <script src="/libs/teal.js"></script>
 <script src="/dice.js"></script>
 <script src="/roller.js"></script>

@@ -406,9 +406,13 @@ body.dark-mode .sidenav .close-btn {
     border-radius: 5px;
 }
 
-.dice-icon {
+.dice-row input[type="color"] {
     width: 24px;
     height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .dice-row label {
