@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
                 appearance: {
                     backgroundColor: '#212121',
                     backgroundImage: null,
-                    useAchillBackground: true, // Default to true
+                    useAchillBackground: false, // Default to false
                     scale: 100,
                     simulationSpeed: 1,
                 },
